@@ -69,7 +69,8 @@
                 Trash2: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>,
                 ArrowLeft: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>,
                 Upload: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>,
-                Menu: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+                Menu: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>,
+                RefreshCw: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
             };
             return icons[name] || null;
         };
@@ -79,7 +80,7 @@
             constructor() { this.init(); }
             init() {
                 // Persistent Key
-                const P = 'streetology_master_v1_';
+                const P = 'streetology_sync_v2_';
                 
                 if (!localStorage.getItem(P + 'products')) {
                     const defaults = [
@@ -92,17 +93,33 @@
                 if (!localStorage.getItem(P + 'orders')) localStorage.setItem(P + 'orders', JSON.stringify([])); 
             }
 
-            async getProducts() { return JSON.parse(localStorage.getItem('streetology_master_v1_products') || '[]'); }
+            async getProducts() { return JSON.parse(localStorage.getItem('streetology_sync_v2_products') || '[]'); }
             async createProduct(p) {
                 const list = await this.getProducts();
-                // Ensure image array exists
                 if(!p.images || p.images.length === 0) p.images = ['https://via.placeholder.com/400x400?text=No+Image'];
                 list.push({ ...p, _id: 'P' + Date.now() });
-                localStorage.setItem('streetology_master_v1_products', JSON.stringify(list));
+                localStorage.setItem('streetology_sync_v2_products', JSON.stringify(list));
             }
             async deleteProduct(id) {
                 const list = (await this.getProducts()).filter(p => p._id !== id);
-                localStorage.setItem('streetology_master_v1_products', JSON.stringify(list));
+                localStorage.setItem('streetology_sync_v2_products', JSON.stringify(list));
+            }
+
+            // SYNC METHODS
+            exportData() {
+                const products = localStorage.getItem('streetology_sync_v2_products');
+                return products;
+            }
+            
+            importData(jsonString) {
+                try {
+                    const parsed = JSON.parse(jsonString);
+                    if(Array.isArray(parsed)) {
+                        localStorage.setItem('streetology_sync_v2_products', jsonString);
+                        return true;
+                    }
+                } catch(e) { return false; }
+                return false;
             }
 
             async login(identifier, password) {
@@ -112,7 +129,7 @@
                             res({ _id: 'ADMIN_MASTER', name: 'Sami Malik', role: 'admin' });
                             return;
                         }
-                        const users = JSON.parse(localStorage.getItem('streetology_master_v1_users') || '[]');
+                        const users = JSON.parse(localStorage.getItem('streetology_sync_v2_users') || '[]');
                         const u = users.find(x => x.phone === identifier && x.password === password);
                         if (u) res(u); else rej('Invalid Credentials');
                     }, 500);
@@ -120,24 +137,24 @@
             }
 
             async register(name, phone, password) {
-                const users = JSON.parse(localStorage.getItem('streetology_master_v1_users') || '[]');
+                const users = JSON.parse(localStorage.getItem('streetology_sync_v2_users') || '[]');
                 if(users.find(u => u.phone === phone)) throw "Phone already registered";
                 const newUser = { _id: Date.now().toString(), name, phone, password, role: 'user' };
                 users.push(newUser);
-                localStorage.setItem('streetology_master_v1_users', JSON.stringify(users));
+                localStorage.setItem('streetology_sync_v2_users', JSON.stringify(users));
                 return newUser;
             }
 
             async createOrder(data) {
-                const ords = JSON.parse(localStorage.getItem('streetology_master_v1_orders') || '[]');
+                const ords = JSON.parse(localStorage.getItem('streetology_sync_v2_orders') || '[]');
                 ords.unshift({ ...data, _id: 'ORD' + Math.floor(Math.random() * 10000), status: 'Processing', createdAt: new Date().toLocaleString() });
-                localStorage.setItem('streetology_master_v1_orders', JSON.stringify(ords));
+                localStorage.setItem('streetology_sync_v2_orders', JSON.stringify(ords));
             }
-            async getOrders() { return JSON.parse(localStorage.getItem('streetology_master_v1_orders') || '[]'); }
+            async getOrders() { return JSON.parse(localStorage.getItem('streetology_sync_v2_orders') || '[]'); }
             async updateOrder(id, s) {
                 const ords = await this.getOrders();
                 const idx = ords.findIndex(o => o._id === id);
-                if (idx !== -1) { ords[idx].status = s; localStorage.setItem('streetology_master_v1_orders', JSON.stringify(ords)); }
+                if (idx !== -1) { ords[idx].status = s; localStorage.setItem('streetology_sync_v2_orders', JSON.stringify(ords)); }
             }
         }
         const db = new MockDB();
@@ -148,22 +165,22 @@
 
         const AuthProvider = ({ children }) => {
             const [user, setUser] = useState(null);
-            useEffect(() => { const u = localStorage.getItem('streetology_auth_master'); if(u) setUser(JSON.parse(u)); }, []);
+            useEffect(() => { const u = localStorage.getItem('streetology_auth_sync'); if(u) setUser(JSON.parse(u)); }, []);
             const login = async (id, pw) => {
                 try { 
                     const u = await db.login(id, pw); 
-                    setUser(u); localStorage.setItem('streetology_auth_master', JSON.stringify(u)); 
+                    setUser(u); localStorage.setItem('streetology_auth_sync', JSON.stringify(u)); 
                     return u;
                 } catch(err) { alert(err); return null; }
             };
             const register = async (n, ph, pw) => {
                 try { 
                     const u = await db.register(n, ph, pw); 
-                    setUser(u); localStorage.setItem('streetology_auth_master', JSON.stringify(u)); 
+                    setUser(u); localStorage.setItem('streetology_auth_sync', JSON.stringify(u)); 
                     return u; 
                 } catch(err) { alert(err); return null; }
             };
-            const logout = () => { setUser(null); localStorage.removeItem('streetology_auth_master'); window.location.hash = '#home'; };
+            const logout = () => { setUser(null); localStorage.removeItem('streetology_auth_sync'); window.location.hash = '#home'; };
             return <AuthCtx.Provider value={{ user, login, register, logout }}>{children}</AuthCtx.Provider>;
         };
 
@@ -454,6 +471,7 @@
             const [tab, setTab] = useState('orders');
             const [data, setData] = useState({ p: [], o: [] });
             const [form, setForm] = useState({ name: '', price: '', cat: 'Hoodies', desc: '', imgs: [] });
+            const [importTxt, setImportTxt] = useState('');
 
             if(!user || user.role !== 'admin') { window.location.hash = '#auth'; return null; }
 
@@ -478,11 +496,21 @@
 
             const addProd = async (e) => {
                 e.preventDefault();
-                if(!form.imgs.length) return alert("Upload at least one image");
                 await db.createProduct({ name: form.name, price: Number(form.price), category: form.cat, images: form.imgs, description: form.desc });
                 setForm({ name: '', price: '', cat: 'Hoodies', desc: '', imgs: [] });
                 refresh();
                 alert('Product Added');
+            };
+
+            const handleExport = () => {
+                const data = db.exportData();
+                navigator.clipboard.writeText(data).then(() => alert("Data Copied to Clipboard! Paste this in your mobile."));
+            };
+
+            const handleImport = () => {
+                const success = db.importData(importTxt);
+                if(success) { alert("Data Loaded Successfully!"); refresh(); }
+                else alert("Invalid Data Format");
             };
 
             return (
@@ -492,10 +520,25 @@
                         <span className="text-xs font-mono text-gray-500 mt-2 md:mt-0">samimalik67@gmail.com</span>
                     </div>
                     <div className="flex gap-2 md:gap-4 mb-8 overflow-x-auto pb-2">
-                        {['orders','add','manage'].map(t => (
+                        {['orders','add','manage','sync'].map(t => (
                             <button key={t} onClick={()=>setTab(t)} className={`text-sm font-bold uppercase whitespace-nowrap px-3 py-2 ${tab===t?'bg-brand-accent text-white':'bg-brand-dark text-gray-500'}`}>{t}</button>
                         ))}
                     </div>
+
+                    {tab === 'sync' && (
+                        <div className="max-w-xl mx-auto space-y-8 bg-brand-dark p-6 border border-gray-800">
+                            <div className="text-center">
+                                <h2 className="text-xl font-bold mb-2">SYNC TO MOBILE</h2>
+                                <p className="text-gray-400 text-sm mb-4">Since this is a simulation, use this to transfer data from PC to Mobile.</p>
+                                <button onClick={handleExport} className="w-full bg-white text-black font-bold py-3 hover:bg-brand-accent mb-6">COPY DATA FROM PC</button>
+                            </div>
+                            <div className="border-t border-gray-700 pt-6">
+                                <h3 className="text-sm font-bold mb-2">PASTE DATA (ON MOBILE)</h3>
+                                <textarea value={importTxt} onChange={e=>setImportTxt(e.target.value)} placeholder="Paste copied code here..." className="w-full bg-black border border-gray-700 p-3 text-white text-xs" rows="4"></textarea>
+                                <button onClick={handleImport} className="w-full bg-brand-accent text-white font-bold py-3 mt-2">LOAD DATA</button>
+                            </div>
+                        </div>
+                    )}
 
                     {tab === 'orders' && (
                         <div className="space-y-4">
