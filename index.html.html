@@ -78,7 +78,7 @@
         class MockDB {
             constructor() { this.init(); }
             init() {
-                const P = 'streetology_fix_v4_';
+                const P = 'streetology_final_v5_';
                 if (!localStorage.getItem(P + 'products')) {
                     const defaults = [
                         { _id: '1', name: 'OVERSIZED HOODIE', price: 2500, category: 'Hoodies', images: ['https://images.unsplash.com/photo-1556905055-8f358a7a47b2?auto=format&fit=crop&w=800&q=80'], description: 'Heavyweight cotton. Boxy fit. 450GSM.' },
@@ -90,15 +90,15 @@
                 if (!localStorage.getItem(P + 'orders')) localStorage.setItem(P + 'orders', JSON.stringify([])); 
             }
 
-            async getProducts() { return JSON.parse(localStorage.getItem('streetology_fix_v4_products') || '[]'); }
+            async getProducts() { return JSON.parse(localStorage.getItem('streetology_final_v5_products') || '[]'); }
             async createProduct(p) {
                 const list = await this.getProducts();
                 list.push({ ...p, _id: 'P' + Date.now() });
-                localStorage.setItem('streetology_fix_v4_products', JSON.stringify(list));
+                localStorage.setItem('streetology_final_v5_products', JSON.stringify(list));
             }
             async deleteProduct(id) {
                 const list = (await this.getProducts()).filter(p => p._id !== id);
-                localStorage.setItem('streetology_fix_v4_products', JSON.stringify(list));
+                localStorage.setItem('streetology_final_v5_products', JSON.stringify(list));
             }
 
             async login(identifier, password) {
@@ -108,7 +108,7 @@
                             res({ _id: 'ADMIN_MASTER', name: 'Sami Malik', role: 'admin' });
                             return;
                         }
-                        const users = JSON.parse(localStorage.getItem('streetology_fix_v4_users') || '[]');
+                        const users = JSON.parse(localStorage.getItem('streetology_final_v5_users') || '[]');
                         const u = users.find(x => x.phone === identifier && x.password === password);
                         if (u) res(u); else rej('Invalid Credentials');
                     }, 500);
@@ -116,24 +116,24 @@
             }
 
             async register(name, phone, password) {
-                const users = JSON.parse(localStorage.getItem('streetology_fix_v4_users') || '[]');
+                const users = JSON.parse(localStorage.getItem('streetology_final_v5_users') || '[]');
                 if(users.find(u => u.phone === phone)) throw "Phone already registered";
                 const newUser = { _id: Date.now().toString(), name, phone, password, role: 'user' };
                 users.push(newUser);
-                localStorage.setItem('streetology_fix_v4_users', JSON.stringify(users));
+                localStorage.setItem('streetology_final_v5_users', JSON.stringify(users));
                 return newUser;
             }
 
             async createOrder(data) {
-                const ords = JSON.parse(localStorage.getItem('streetology_fix_v4_orders') || '[]');
+                const ords = JSON.parse(localStorage.getItem('streetology_final_v5_orders') || '[]');
                 ords.unshift({ ...data, _id: 'ORD' + Math.floor(Math.random() * 10000), status: 'Processing', createdAt: new Date().toLocaleString() });
-                localStorage.setItem('streetology_fix_v4_orders', JSON.stringify(ords));
+                localStorage.setItem('streetology_final_v5_orders', JSON.stringify(ords));
             }
-            async getOrders() { return JSON.parse(localStorage.getItem('streetology_fix_v4_orders') || '[]'); }
+            async getOrders() { return JSON.parse(localStorage.getItem('streetology_final_v5_orders') || '[]'); }
             async updateOrder(id, s) {
                 const ords = await this.getOrders();
                 const idx = ords.findIndex(o => o._id === id);
-                if (idx !== -1) { ords[idx].status = s; localStorage.setItem('streetology_fix_v4_orders', JSON.stringify(ords)); }
+                if (idx !== -1) { ords[idx].status = s; localStorage.setItem('streetology_final_v5_orders', JSON.stringify(ords)); }
             }
         }
         const db = new MockDB();
@@ -144,22 +144,23 @@
 
         const AuthProvider = ({ children }) => {
             const [user, setUser] = useState(null);
-            useEffect(() => { const u = localStorage.getItem('streetology_auth_v4'); if(u) setUser(JSON.parse(u)); }, []);
+            useEffect(() => { const u = localStorage.getItem('streetology_auth_v5'); if(u) setUser(JSON.parse(u)); }, []);
+            
             const login = async (id, pw) => {
                 try { 
                     const u = await db.login(id, pw); 
-                    setUser(u); localStorage.setItem('streetology_auth_v4', JSON.stringify(u)); 
+                    setUser(u); localStorage.setItem('streetology_auth_v5', JSON.stringify(u)); 
                     return u;
                 } catch(err) { alert(err); return null; }
             };
             const register = async (n, ph, pw) => {
                 try { 
                     const u = await db.register(n, ph, pw); 
-                    setUser(u); localStorage.setItem('streetology_auth_v4', JSON.stringify(u)); 
+                    setUser(u); localStorage.setItem('streetology_auth_v5', JSON.stringify(u)); 
                     return u; 
                 } catch(err) { alert(err); return null; }
             };
-            const logout = () => { setUser(null); localStorage.removeItem('streetology_auth_v4'); window.location.hash = '#home'; };
+            const logout = () => { setUser(null); localStorage.removeItem('streetology_auth_v5'); window.location.hash = '#home'; };
             return <AuthCtx.Provider value={{ user, login, register, logout }}>{children}</AuthCtx.Provider>;
         };
 
@@ -249,16 +250,24 @@
             );
         };
 
-        const Hero = () => (
-            <div className="h-screen relative flex items-center justify-center bg-black overflow-hidden">
-                <img src="https://images.unsplash.com/photo-1617386564466-8d64cc113d55?auto=format&fit=crop&w=1920&q=80" className="absolute inset-0 w-full h-full object-cover opacity-50 filter grayscale contrast-125"/>
-                <div className="z-10 text-center px-4 w-full">
-                    <motion.h1 initial={{y:30, opacity:0}} animate={{y:0, opacity:1}} className="text-5xl md:text-9xl font-bold tracking-tight text-white mb-4">STREETOLOGY</motion.h1>
-                    <p className="text-brand-accent tracking-[0.3em] md:tracking-[0.5em] font-mono mb-8 text-xs md:text-base">EST. 2025 // FUTURE WEAR</p>
-                    <a href="#shop" className="bg-white text-black px-8 py-3 md:px-10 md:py-4 font-bold tracking-widest hover:bg-brand-accent hover:text-white transition duration-300 text-sm md:text-base">ENTER STORE</a>
+        const Hero = () => {
+            const { user } = useContext(AuthCtx);
+            return (
+                <div className="h-screen relative flex items-center justify-center bg-black overflow-hidden">
+                    <img src="https://images.unsplash.com/photo-1617386564466-8d64cc113d55?auto=format&fit=crop&w=1920&q=80" className="absolute inset-0 w-full h-full object-cover opacity-50 filter grayscale contrast-125"/>
+                    <div className="z-10 text-center px-4 w-full">
+                        <motion.h1 initial={{y:30, opacity:0}} animate={{y:0, opacity:1}} className="text-5xl md:text-9xl font-bold tracking-tight text-white mb-4">STREETOLOGY</motion.h1>
+                        <p className="text-brand-accent tracking-[0.3em] md:tracking-[0.5em] font-mono mb-8 text-xs md:text-base">EST. 2025 // FUTURE WEAR</p>
+                        <button 
+                            onClick={() => window.location.hash = user ? '#shop' : '#auth'}
+                            className="bg-white text-black px-8 py-3 md:px-10 md:py-4 font-bold tracking-widest hover:bg-brand-accent hover:text-white transition duration-300 text-sm md:text-base"
+                        >
+                            ENTER STORE
+                        </button>
+                    </div>
                 </div>
-            </div>
-        );
+            );
+        };
 
         const Shop = ({ setCurr }) => {
             const [list, setList] = useState([]);
@@ -294,7 +303,6 @@
             const [size, setSize] = useState('');
             const [idx, setIdx] = useState(0);
 
-            // LOADING STATE: If product isn't loaded yet, show loader
             if(!p) return (
                 <Page>
                     <div className="h-[50vh] flex items-center justify-center">
@@ -308,7 +316,6 @@
                     <a href="#shop" className="flex items-center gap-2 text-xs font-bold text-gray-500 mb-6 hover:text-white tracking-widest"><Icon name="ArrowLeft" size={16}/> BACK</a>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 pb-10">
                         <div className="space-y-4">
-                            {/* Adjusted height for mobile so it doesn't take full screen */}
                             <motion.img key={idx} initial={{opacity:0}} animate={{opacity:1}} src={p.images[idx]} className="w-full h-[350px] md:h-[600px] object-cover bg-brand-dark"/>
                             <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
                                 {p.images.map((img, i) => (
