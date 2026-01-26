@@ -3,8 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>STREETOLOGY | The Streets</title>
+    <title>STREETOLOGY | EST. 2025</title>
     
+    <!-- Performance Optimization: Preconnect -->
+    <link rel="preconnect" href="https://cdn.tailwindcss.com">
+    <link rel="preconnect" href="https://unpkg.com">
+    <link rel="preconnect" href="https://images.unsplash.com">
+    <link rel="preconnect" href="https://streetology-244f5-default-rtdb.asia-southeast1.firebasedatabase.app">
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -31,17 +37,13 @@
                             dark: '#111',  
                             gray: '#222',  
                             light: '#ededed',
-                            accent: '#FF3333', // Neon Red
-                            accentHover: '#cc0000',
+                            accent: '#FF3333', 
                             glass: 'rgba(20, 20, 20, 0.7)'
                         }
                     },
                     fontFamily: {
                         sans: ['Helvetica Neue', 'Arial', 'sans-serif'],
                         mono: ['Courier New', 'monospace'],
-                    },
-                    backgroundImage: {
-                        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
                     }
                 }
             }
@@ -51,11 +53,12 @@
     <style>
         body { background-color: #050505; color: #ededed; font-family: 'Helvetica Neue', sans-serif; overflow-x: hidden; }
         .glass-panel { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.05); }
-        .glass-nav { background: rgba(5, 5, 5, 0.8); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+        .glass-nav { background: rgba(5, 5, 5, 0.9); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         input, select, textarea { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; transition: all 0.3s; }
         input:focus, select:focus, textarea:focus { border-color: #FF3333; outline: none; background: rgba(255,255,255,0.08); }
-        .neon-text { text-shadow: 0 0 15px rgba(255, 51, 51, 0.6); }
+        /* Clean Neon Glow */
+        .neon-text { text-shadow: 0 0 20px rgba(255, 255, 255, 0.2); }
         * { -webkit-tap-highlight-color: transparent; }
     </style>
 
@@ -184,7 +187,7 @@
                 <nav className="fixed w-full top-0 z-50 glass-nav h-16 flex items-center justify-between px-6 shadow-2xl">
                     <div className="flex items-center gap-4">
                         <button onClick={()=>setMenu(true)} className="md:hidden text-white"><Icon name="Menu"/></button>
-                        <a href="#home" className="text-2xl font-bold tracking-tight text-white hover:text-brand-accent transition">STREETOLOGY</a>
+                        <a href="#home" className="text-xl md:text-2xl font-bold tracking-tight text-white hover:text-brand-accent transition">STREETOLOGY</a>
                     </div>
                     <div className="hidden md:flex gap-8 text-xs font-bold text-gray-400 tracking-widest">
                         {['HOME','SHOP','ABOUT','CONTACT'].map(L => <a key={L} href={`#${L.toLowerCase()}`} className="hover:text-brand-accent transition duration-300">{L}</a>)}
@@ -204,7 +207,7 @@
                     <AnimatePresence>
                         {menu && (
                             <motion.div initial={{x:'-100%'}} animate={{x:0}} exit={{x:'-100%'}} className="fixed inset-0 bg-black z-50 flex flex-col p-8 md:hidden">
-                                <div className="flex justify-between mb-10"><span className="text-2xl font-bold">MENU</span><button onClick={()=>setMenu(false)}><Icon name="X"/></button></div>
+                                <div className="flex justify-between mb-10"><span className="text-2xl font-bold italic">MENU</span><button onClick={()=>setMenu(false)}><Icon name="X"/></button></div>
                                 <div className="flex flex-col gap-6 text-2xl font-bold text-gray-400">
                                     {['HOME','SHOP','ABOUT','CONTACT'].map(L => <a key={L} href={`#${L.toLowerCase()}`} onClick={()=>setMenu(false)}>{L}</a>)}
                                     <div className="h-px bg-gray-800 my-4"></div>
@@ -223,12 +226,33 @@
                 <div className="h-screen relative flex items-center justify-center bg-black overflow-hidden">
                     <img src="https://images.unsplash.com/photo-1523398002811-999ca8dec234?auto=format&fit=crop&w=1920&q=80" className="absolute inset-0 w-full h-full object-cover opacity-40 filter grayscale contrast-125"/>
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/60"></div>
-                    <div className="z-10 text-center px-4">
-                        <div className="relative inline-block mb-4">
-                            <motion.h1 initial={{y:50, opacity:0}} animate={{y:0, opacity:1}} className="text-6xl md:text-9xl font-bold tracking-tight text-white neon-text leading-none">STREETOLOGY</motion.h1>
-                            <motion.span initial={{opacity:0}} animate={{opacity:1}} transition={{delay:0.5}} className="absolute -bottom-2 md:-bottom-4 right-1 text-xs md:text-xl text-brand-accent font-mono tracking-[0.3em] font-bold">THE STREETS</motion.span>
+                    <div className="z-10 text-center px-4 w-full">
+                        
+                        {/* UPDATED LOGO SECTION */}
+                        <div className="relative inline-block mb-2">
+                            <motion.h1 
+                                initial={{y:50, opacity:0}} 
+                                animate={{y:0, opacity:1}} 
+                                className="text-5xl md:text-9xl font-bold text-white neon-text tracking-tight leading-none"
+                            >
+                                STREETOLOGY
+                            </motion.h1>
+                            
+                            {/* CIRCLE TM on Y */}
+                            <span className="absolute top-0 -right-4 md:-right-8 text-[10px] md:text-sm text-gray-400 border border-gray-400 rounded-full w-4 h-4 md:w-6 md:h-6 flex items-center justify-center">TM</span>
+                            
+                            {/* TAGLINE: Right aligned, S under Y */}
+                            <motion.div 
+                                initial={{opacity:0}} 
+                                animate={{opacity:1}} 
+                                transition={{delay:0.5}}
+                                className="absolute right-0 -bottom-3 md:-bottom-6 text-brand-accent text-[10px] md:text-lg font-mono font-bold tracking-[0.2em] md:tracking-[0.3em]"
+                            >
+                                THE STREETS
+                            </motion.div>
                         </div>
-                        <p className="text-gray-300 tracking-[0.5em] font-mono mb-10 text-xs md:text-sm mt-4">EST. 2025 // FUTURE WEAR</p>
+
+                        <p className="text-gray-400 tracking-[0.5em] font-mono mb-12 text-xs md:text-sm mt-8">EST. 2025 // FUTURE WEAR</p>
                         <button onClick={() => window.location.hash = user ? '#shop' : '#auth'} className="bg-white text-black px-10 py-4 font-black tracking-widest hover:bg-brand-accent hover:text-white transition duration-300 clip-path-slant">ENTER STORE</button>
                     </div>
                 </div>
@@ -249,7 +273,7 @@
                         {list.map(p => (
                             <motion.div whileHover={{y:-10}} key={p._id} onClick={()=>{setCurr(p); window.location.hash='#product/'+p._id}} className="group cursor-pointer glass-panel p-3">
                                 <div className="h-[400px] overflow-hidden relative mb-4 bg-black">
-                                    <img src={p.images[0]} className="w-full h-full object-cover transition duration-700 group-hover:scale-110 opacity-90 group-hover:opacity-100"/>
+                                    <img src={p.images[0]} loading="lazy" className="w-full h-full object-cover transition duration-700 group-hover:scale-110 opacity-90 group-hover:opacity-100"/>
                                 </div>
                                 <div className="flex justify-between items-start px-1">
                                     <div>
