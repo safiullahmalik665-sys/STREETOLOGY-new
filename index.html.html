@@ -78,7 +78,9 @@
         class MockDB {
             constructor() { this.init(); }
             init() {
-                const P = 'streetology_final_v5_';
+                // Persistent Key
+                const P = 'streetology_master_v1_';
+                
                 if (!localStorage.getItem(P + 'products')) {
                     const defaults = [
                         { _id: '1', name: 'OVERSIZED HOODIE', price: 2500, category: 'Hoodies', images: ['https://images.unsplash.com/photo-1556905055-8f358a7a47b2?auto=format&fit=crop&w=800&q=80'], description: 'Heavyweight cotton. Boxy fit. 450GSM.' },
@@ -90,15 +92,17 @@
                 if (!localStorage.getItem(P + 'orders')) localStorage.setItem(P + 'orders', JSON.stringify([])); 
             }
 
-            async getProducts() { return JSON.parse(localStorage.getItem('streetology_final_v5_products') || '[]'); }
+            async getProducts() { return JSON.parse(localStorage.getItem('streetology_master_v1_products') || '[]'); }
             async createProduct(p) {
                 const list = await this.getProducts();
+                // Ensure image array exists
+                if(!p.images || p.images.length === 0) p.images = ['https://via.placeholder.com/400x400?text=No+Image'];
                 list.push({ ...p, _id: 'P' + Date.now() });
-                localStorage.setItem('streetology_final_v5_products', JSON.stringify(list));
+                localStorage.setItem('streetology_master_v1_products', JSON.stringify(list));
             }
             async deleteProduct(id) {
                 const list = (await this.getProducts()).filter(p => p._id !== id);
-                localStorage.setItem('streetology_final_v5_products', JSON.stringify(list));
+                localStorage.setItem('streetology_master_v1_products', JSON.stringify(list));
             }
 
             async login(identifier, password) {
@@ -108,7 +112,7 @@
                             res({ _id: 'ADMIN_MASTER', name: 'Sami Malik', role: 'admin' });
                             return;
                         }
-                        const users = JSON.parse(localStorage.getItem('streetology_final_v5_users') || '[]');
+                        const users = JSON.parse(localStorage.getItem('streetology_master_v1_users') || '[]');
                         const u = users.find(x => x.phone === identifier && x.password === password);
                         if (u) res(u); else rej('Invalid Credentials');
                     }, 500);
@@ -116,24 +120,24 @@
             }
 
             async register(name, phone, password) {
-                const users = JSON.parse(localStorage.getItem('streetology_final_v5_users') || '[]');
+                const users = JSON.parse(localStorage.getItem('streetology_master_v1_users') || '[]');
                 if(users.find(u => u.phone === phone)) throw "Phone already registered";
                 const newUser = { _id: Date.now().toString(), name, phone, password, role: 'user' };
                 users.push(newUser);
-                localStorage.setItem('streetology_final_v5_users', JSON.stringify(users));
+                localStorage.setItem('streetology_master_v1_users', JSON.stringify(users));
                 return newUser;
             }
 
             async createOrder(data) {
-                const ords = JSON.parse(localStorage.getItem('streetology_final_v5_orders') || '[]');
+                const ords = JSON.parse(localStorage.getItem('streetology_master_v1_orders') || '[]');
                 ords.unshift({ ...data, _id: 'ORD' + Math.floor(Math.random() * 10000), status: 'Processing', createdAt: new Date().toLocaleString() });
-                localStorage.setItem('streetology_final_v5_orders', JSON.stringify(ords));
+                localStorage.setItem('streetology_master_v1_orders', JSON.stringify(ords));
             }
-            async getOrders() { return JSON.parse(localStorage.getItem('streetology_final_v5_orders') || '[]'); }
+            async getOrders() { return JSON.parse(localStorage.getItem('streetology_master_v1_orders') || '[]'); }
             async updateOrder(id, s) {
                 const ords = await this.getOrders();
                 const idx = ords.findIndex(o => o._id === id);
-                if (idx !== -1) { ords[idx].status = s; localStorage.setItem('streetology_final_v5_orders', JSON.stringify(ords)); }
+                if (idx !== -1) { ords[idx].status = s; localStorage.setItem('streetology_master_v1_orders', JSON.stringify(ords)); }
             }
         }
         const db = new MockDB();
@@ -144,23 +148,22 @@
 
         const AuthProvider = ({ children }) => {
             const [user, setUser] = useState(null);
-            useEffect(() => { const u = localStorage.getItem('streetology_auth_v5'); if(u) setUser(JSON.parse(u)); }, []);
-            
+            useEffect(() => { const u = localStorage.getItem('streetology_auth_master'); if(u) setUser(JSON.parse(u)); }, []);
             const login = async (id, pw) => {
                 try { 
                     const u = await db.login(id, pw); 
-                    setUser(u); localStorage.setItem('streetology_auth_v5', JSON.stringify(u)); 
+                    setUser(u); localStorage.setItem('streetology_auth_master', JSON.stringify(u)); 
                     return u;
                 } catch(err) { alert(err); return null; }
             };
             const register = async (n, ph, pw) => {
                 try { 
                     const u = await db.register(n, ph, pw); 
-                    setUser(u); localStorage.setItem('streetology_auth_v5', JSON.stringify(u)); 
+                    setUser(u); localStorage.setItem('streetology_auth_master', JSON.stringify(u)); 
                     return u; 
                 } catch(err) { alert(err); return null; }
             };
-            const logout = () => { setUser(null); localStorage.removeItem('streetology_auth_v5'); window.location.hash = '#home'; };
+            const logout = () => { setUser(null); localStorage.removeItem('streetology_auth_master'); window.location.hash = '#home'; };
             return <AuthCtx.Provider value={{ user, login, register, logout }}>{children}</AuthCtx.Provider>;
         };
 
@@ -269,6 +272,49 @@
             );
         };
 
+        const About = () => (
+            <Page>
+                <div className="max-w-4xl mx-auto text-center pt-10">
+                    <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-8">WHO WE ARE</h1>
+                    <img src="https://images.unsplash.com/photo-1503342394128-c104d54dba01?auto=format&fit=crop&w=1200&q=80" className="w-full h-64 md:h-96 object-cover mb-8 filter grayscale rounded-sm"/>
+                    <p className="text-xl leading-relaxed text-gray-400 mb-6">
+                        <strong className="text-white">STREETOLOGY</strong> wasn't just built to sell clothes. It was built to define a movement.
+                    </p>
+                    <p className="text-gray-500 max-w-2xl mx-auto leading-relaxed">
+                        Born from the gritty streets of Mumbai in 2025, we merge high-end luxury silhouettes with raw street aesthetics. Every fabric is hand-picked, every cut is deliberate. We don't chase trends; we set the standard.
+                    </p>
+                </div>
+            </Page>
+        );
+
+        const Contact = () => (
+            <Page>
+                <div className="max-w-3xl mx-auto pt-10">
+                    <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-8 text-center">CONTACT</h1>
+                    <div className="grid md:grid-cols-2 gap-12 bg-brand-dark p-8 border border-gray-800">
+                        <div className="space-y-6">
+                            <div>
+                                <h3 className="font-bold text-brand-accent mb-2">EMAIL</h3>
+                                <a href="mailto:support@streetology.com" className="text-lg md:text-xl text-white hover:text-brand-accent transition underline decoration-gray-700 underline-offset-4">support@streetology.com</a>
+                                <p className="text-xs text-gray-500 mt-1">For inquiries, orders, and collaborations.</p>
+                            </div>
+                            
+                            <div>
+                                <h3 className="font-bold text-brand-accent mb-2">HEADQUARTERS</h3>
+                                <p className="text-gray-400">Streetology Studios<br/>Mumbai, India - 400050</p>
+                            </div>
+                        </div>
+                        <form onSubmit={(e)=>{e.preventDefault(); alert('Message sent!');}} className="space-y-4">
+                            <input placeholder="Name" className="w-full bg-black border border-gray-700 p-3 outline-none text-white focus:border-brand-accent"/>
+                            <input placeholder="Phone" className="w-full bg-black border border-gray-700 p-3 outline-none text-white focus:border-brand-accent"/>
+                            <textarea placeholder="Message" className="w-full bg-black border border-gray-700 p-3 outline-none text-white focus:border-brand-accent" rows="4"></textarea>
+                            <button className="w-full bg-white text-black font-bold py-3 hover:bg-brand-accent hover:text-white transition">SEND MESSAGE</button>
+                        </form>
+                    </div>
+                </div>
+            </Page>
+        );
+
         const Shop = ({ setCurr }) => {
             const [list, setList] = useState([]);
             useEffect(()=>{ db.getProducts().then(setList); }, []);
@@ -278,13 +324,18 @@
                         <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-2 md:mb-0">COLLECTION</h2>
                         <span className="text-gray-500 font-mono text-xs">FALL / WINTER 2025</span>
                     </div>
+                    {/* Fixed grid for mobile */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pb-20">
                         {list.map(p => (
-                            <div key={p._id} onClick={()=>{setCurr(p); window.location.hash='#product/'+p._id}} className="group cursor-pointer block">
-                                <div className="h-[400px] md:h-[500px] bg-brand-dark overflow-hidden relative mb-4">
-                                    <img src={p.images[0]} className="w-full h-full object-cover transition duration-700 group-hover:scale-105"/>
+                            <div key={p._id} onClick={()=>{setCurr(p); window.location.hash='#product/'+p._id}} className="group cursor-pointer block bg-brand-dark p-2 md:p-0">
+                                <div className="h-[400px] md:h-[500px] bg-black overflow-hidden relative mb-4">
+                                    <img 
+                                        src={p.images && p.images.length > 0 ? p.images[0] : 'https://via.placeholder.com/400x500?text=No+Image'} 
+                                        className="w-full h-full object-cover transition duration-700 group-hover:scale-105"
+                                        alt={p.name}
+                                    />
                                 </div>
-                                <div className="flex justify-between font-bold items-start">
+                                <div className="flex justify-between font-bold items-start px-2 md:px-0">
                                     <div>
                                         <h3 className="text-base md:text-lg">{p.name}</h3>
                                         <p className="text-xs text-gray-500 uppercase">{p.category}</p>
@@ -311,14 +362,17 @@
                 </Page>
             );
 
+            // Safe image handling
+            const images = (p.images && p.images.length > 0) ? p.images : ['https://via.placeholder.com/600x600?text=No+Image'];
+
             return (
                 <Page>
                     <a href="#shop" className="flex items-center gap-2 text-xs font-bold text-gray-500 mb-6 hover:text-white tracking-widest"><Icon name="ArrowLeft" size={16}/> BACK</a>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 pb-10">
                         <div className="space-y-4">
-                            <motion.img key={idx} initial={{opacity:0}} animate={{opacity:1}} src={p.images[idx]} className="w-full h-[350px] md:h-[600px] object-cover bg-brand-dark"/>
+                            <motion.img key={idx} initial={{opacity:0}} animate={{opacity:1}} src={images[idx]} className="w-full h-[350px] md:h-[600px] object-cover bg-brand-dark"/>
                             <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                                {p.images.map((img, i) => (
+                                {images.map((img, i) => (
                                     <img key={i} src={img} onClick={()=>setIdx(i)} className={`w-16 h-20 md:w-20 md:h-24 object-cover cursor-pointer border-2 ${idx===i?'border-brand-accent':'border-transparent'}`}/>
                                 ))}
                             </div>
@@ -412,6 +466,7 @@
 
             const handleFiles = (e) => {
                 const files = Array.from(e.target.files);
+                if(files.length > 4) { alert("Max 4 images"); return; }
                 Promise.all(files.map(file => {
                     return new Promise((resolve) => {
                         const reader = new FileReader();
@@ -481,7 +536,7 @@
                             <textarea required placeholder="Description" value={form.desc} onChange={e=>setForm({...form,desc:e.target.value})} className="w-full bg-black border border-gray-700 p-3 text-white" rows="3"></textarea>
                             <label className="block border-2 border-dashed border-gray-700 p-6 text-center cursor-pointer hover:border-white">
                                 <Icon name="Upload" className="mx-auto mb-2"/>
-                                <span className="text-xs font-bold">UPLOAD IMAGES</span>
+                                <span className="text-xs font-bold">UPLOAD IMAGES (Max 4)</span>
                                 <input type="file" multiple accept="image/*" onChange={handleFiles} className="hidden" />
                             </label>
                             <div className="flex gap-2 flex-wrap">{form.imgs.map((s,i)=><img key={i} src={s} className="w-16 h-16 object-cover border border-gray-700"/>)}</div>
@@ -589,8 +644,8 @@
                         <AnimatePresence mode="wait">
                             {view === 'home' && <Hero key="h"/>}
                             {view === 'shop' && <Shop key="s" setCurr={setCurr}/>}
-                            {view === 'about' && <Page key="ab"><div className="pt-10 text-center"><h1 className="text-4xl font-bold mb-4">WHO WE ARE</h1><p className="text-gray-400">Luxury. Streets. Future.</p></div></Page>}
-                            {view === 'contact' && <Page key="ct"><div className="pt-10 text-center"><h1 className="text-4xl font-bold mb-4">CONTACT</h1><p className="text-gray-400">support@streetology.com</p></div></Page>}
+                            {view === 'about' && <About key="ab"/>}
+                            {view === 'contact' && <Contact key="ct"/>}
                             {view === 'product' && <Product key="p" p={curr}/>}
                             {view === 'checkout' && <Checkout key="c"/>}
                             {view === 'admin' && <Admin key="a"/>}
