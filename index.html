@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,24 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>STREETOLOGY | EST. 2025</title>
     
-    <!-- Speed Optimizations -->
-    <link rel="preconnect" href="https://cdn.tailwindcss.com">
-    <link rel="preconnect" href="https://streetology-244f5-default-rtdb.asia-southeast1.firebasedatabase.app">
-
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- React & ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    
-    <!-- Babel -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Framer Motion -->
     <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
-
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <script>
@@ -31,18 +17,7 @@
             theme: {
                 extend: {
                     colors: {
-                        brand: {
-                            black: '#0a0a0a', 
-                            dark: '#111',  
-                            gray: '#222',  
-                            light: '#ededed',
-                            accent: '#FF3333', 
-                            glass: 'rgba(20, 20, 20, 0.7)'
-                        }
-                    },
-                    fontFamily: {
-                        sans: ['Helvetica Neue', 'Arial', 'sans-serif'],
-                        mono: ['Courier New', 'monospace'],
+                        brand: { black: '#0a0a0a', dark: '#111', gray: '#222', light: '#ededed', accent: '#FF3333' }
                     }
                 }
             }
@@ -53,17 +28,13 @@
         body { background-color: #050505; color: #ededed; font-family: 'Helvetica Neue', sans-serif; overflow-x: hidden; }
         .glass-panel { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.05); }
         .glass-nav { background: rgba(5, 5, 5, 0.9); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        input, select, textarea { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; transition: all 0.3s; }
-        input:focus, select:focus, textarea:focus { border-color: #FF3333; outline: none; background: rgba(255,255,255,0.08); }
+        input, select, textarea { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; width: 100%; padding: 12px; }
         .neon-text { text-shadow: 0 0 20px rgba(255, 255, 255, 0.15); }
-        * { -webkit-tap-highlight-color: transparent; }
     </style>
 
-    <!-- FIREBASE & CACHING LOGIC (FIXED FOR LOGIN) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, push, set, get, remove, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, push, set, get, remove, update, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAsCBOY_KRxaQVeEjjkMG8mryvRVw-i00M",
@@ -78,588 +49,270 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        let CACHE = { products: null };
-
         window.DB = {
-            async getSettings() {
-                try {
-                    const s = await get(ref(db, 'settings'));
-                    return s.exists() ? s.val() : { locked: false, dropTitle: "MYSTERY DROP", dropImage: "" };
-                } catch { return { locked: false }; }
-            },
-            async updateSettings(settings) {
-                await update(ref(db, 'settings'), settings);
-            },
-            async getProducts(force = false) {
-                if (CACHE.products && !force) return CACHE.products;
-                try {
-                    const s = await get(ref(db, 'products'));
-                    const data = s.exists() ? Object.entries(s.val()).map(([k, v]) => ({...v, _id: k})) : [];
-                    CACHE.products = data;
-                    return data;
-                } catch(e) { console.error(e); return []; }
-            },
-            async createProduct(p) {
-                const r = push(ref(db, 'products'));
-                if(!p.images || !p.images.length) p.images = ['https://via.placeholder.com/400x500?text=No+Image'];
-                await set(r, {...p, _id: r.key});
-                CACHE.products = null;
-            },
-            async toggleStock(id, currentStatus) {
-                const newStatus = currentStatus === 'sold_out' ? 'active' : 'sold_out';
-                await update(ref(db, `products/${id}`), { status: newStatus });
-                CACHE.products = null;
-            },
-            async deleteProduct(id) { 
-                await remove(ref(db, `products/${id}`)); 
-                CACHE.products = null; 
-            },
-            async createOrder(o) {
-                const r = push(ref(db, 'orders'));
-                await set(r, { ...o, _id: 'ORD-'+r.key.slice(-5).toUpperCase(), status: 'Pending', createdAt: new Date().toLocaleString() });
-            },
-            async getOrders() {
-                const s = await get(ref(db, 'orders'));
-                return s.exists() ? Object.entries(s.val()).map(([k, v]) => ({...v, dbKey: k})).reverse() : [];
-            },
+            syncSettings(cb) { onValue(ref(db, 'settings'), s => cb(s.exists() ? s.val() : { locked: false })); },
+            syncProducts(cb) { onValue(ref(db, 'products'), s => cb(s.exists() ? Object.entries(s.val()).map(([k, v]) => ({...v, _id: k})) : [])); },
+            syncOrders(cb) { onValue(ref(db, 'orders'), s => cb(s.exists() ? Object.entries(s.val()).map(([k, v]) => ({...v, dbKey: k})).reverse() : [])); },
+            async updateSettings(s) { await update(ref(db, 'settings'), s); },
+            async createProduct(p) { const r = push(ref(db, 'products')); await set(r, {...p, _id: r.key}); },
+            async updateProduct(id, p) { await update(ref(db, `products/${id}`), p); },
+            async deleteProduct(id) { await remove(ref(db, `products/${id}`)); },
             async updateOrderStatus(k, s) { await update(ref(db, `orders/${k}`), { status: s }); },
-            
-            // --- LOGIN LOGIC (FIXED) ---
             async login(ph, pw) {
-                const cleanPh = String(ph).trim();
-                const cleanPw = String(pw).trim();
-
-                // Admin Check
-                if (cleanPh === 'samimalik67@gmail.com' && cleanPw === 'samimalik@admin') {
-                    return { role: 'admin', name: 'Sami Malik', _id: 'admin_01' };
-                }
-
-                try {
-                    const s = await get(ref(db, 'users'));
-                    if (s.exists()) {
-                        const usersObj = s.val();
-                        // Finding user with string conversion to avoid type errors
-                        const foundKey = Object.keys(usersObj).find(key => {
-                            const u = usersObj[key];
-                            return String(u.phone).trim() === cleanPh && String(u.password).trim() === cleanPw;
-                        });
-
-                        if (foundKey) {
-                            return { ...usersObj[foundKey], _id: foundKey };
-                        }
-                    }
-                } catch(e) {
-                    console.error("DB Error", e);
-                    throw "Database Connection Error.";
-                }
-                throw "Invalid Credentials";
-            },
-
-            async register(n, ph, pw) {
-                const cleanPh = String(ph).trim();
-                const cleanPw = String(pw).trim();
-                const cleanName = String(n).trim();
-                
-                if(!cleanPh || !cleanPw || !cleanName) throw "Please fill all fields";
-
+                const cPh = String(ph).trim(), cPw = String(pw).trim();
+                if (cPh === 'samimalik67@gmail.com' && cPw === 'samimalik@admin') return { role: 'admin', name: 'Sami Malik', _id: 'admin_01' };
                 const s = await get(ref(db, 'users'));
                 if (s.exists()) {
-                    const exists = Object.values(s.val()).find(u => String(u.phone).trim() === cleanPh);
-                    if (exists) throw "Phone Number Already Registered";
+                    const uKey = Object.keys(s.val()).find(k => String(s.val()[k].phone).trim() === cPh && String(s.val()[k].password).trim() === cPw);
+                    if (uKey) return { ...s.val()[uKey], _id: uKey };
                 }
-                
-                const r = push(ref(db, 'users'));
-                const u = { name: cleanName, phone: cleanPh, password: cleanPw, role: 'user' };
-                await set(r, u); 
-                return { ...u, _id: r.key };
+                throw "Invalid Credentials";
             }
         };
         window.dispatchEvent(new Event('db-ready'));
     </script>
 </head>
 <body>
-
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useContext, createContext } = React;
         const { motion, AnimatePresence } = window.Motion;
 
-        // ICONS
+        const AuthCtx = createContext();
+        const SettingsCtx = createContext();
+
         const Icon = ({ name, size = 20, className, onClick }) => {
             const icons = {
-                ShoppingBag: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>,
                 User: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
-                X: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>,
-                Trash2: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>,
-                ArrowLeft: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>,
-                Menu: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>,
-                Package: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22v-9"/></svg>,
-                CheckCircle: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>,
-                Upload: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>,
-                Box: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22v-9"/></svg>,
-                Lock: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Trash2: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>,
+                Edit: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>,
+                X: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
             };
             return icons[name] || null;
         };
 
-        // CONTEXTS
-        const AuthCtx = createContext();
-        const CartCtx = createContext();
-        const SettingsCtx = createContext();
-
-        const AuthProvider = ({children}) => {
-            const [user, setUser] = useState(JSON.parse(localStorage.getItem('street_user')));
-            const login = async (id, pw) => {
-                if(!window.DB) return alert('Connecting...');
-                try { const u = await window.DB.login(id, pw); setUser(u); localStorage.setItem('street_user', JSON.stringify(u)); return u; } 
-                catch(e) { alert(e); return null; }
-            };
-            const register = async (n, ph, pw) => {
-                if(!window.DB) return alert('Connecting...');
-                try { const u = await window.DB.register(n, ph, pw); setUser(u); localStorage.setItem('street_user', JSON.stringify(u)); return u; }
-                catch(e) { alert(e); return null; }
-            };
-            const logout = () => { setUser(null); localStorage.removeItem('street_user'); window.location.hash='#home'; };
-            return <AuthCtx.Provider value={{user, login, register, logout}}>{children}</AuthCtx.Provider>;
-        };
-
-        const CartProvider = ({children}) => {
-            const [cart, setCart] = useState([]);
-            const [open, setOpen] = useState(false);
-            const add = (p, s) => { setCart(prev => {
-                const ex = prev.find(i => i._id === p._id && i.size === s);
-                return ex ? prev.map(i => i===ex ? {...i, qty:i.qty+1}:i) : [...prev, {...p, size:s, qty:1}];
-            }); setOpen(true); };
-            const remove = (id, s) => setCart(p => p.filter(i => !(i._id === id && i.size === s)));
-            const total = cart.reduce((a, b) => a + (b.price * b.qty), 0);
-            return <CartCtx.Provider value={{cart, open, setOpen, add, remove, total, clear: ()=>setCart([])}}>{children}</CartCtx.Provider>;
-        };
-
-        const SettingsProvider = ({children}) => {
-            const [settings, setSettings] = useState({locked: false, dropTitle: "", dropImage: ""});
-            useEffect(() => {
-                const f = async () => { if(window.DB) setSettings(await window.DB.getSettings()); };
-                f(); window.addEventListener('db-ready', f); return ()=>window.removeEventListener('db-ready', f);
-            }, []);
-            return <SettingsCtx.Provider value={{settings, updateSettings: (s) => { setSettings(s); window.DB.updateSettings(s); }}}>{children}</SettingsCtx.Provider>
-        };
-
-        // COMPONENTS
-        const Navbar = () => {
-            const { cart, setOpen } = useContext(CartCtx);
-            const { user, logout } = useContext(AuthCtx);
-            const { settings } = useContext(SettingsCtx);
-            const [menu, setMenu] = useState(false);
-            if(settings.locked) return null;
-            return (
-                <nav className="fixed w-full top-0 z-50 glass-nav h-16 flex items-center justify-between px-6 shadow-2xl transition-all">
-                    <div className="flex items-center gap-4">
-                        <button onClick={()=>setMenu(true)} className="md:hidden text-white"><Icon name="Menu"/></button>
-                        <a href="#home" className="text-2xl font-bold tracking-tight text-white hover:text-brand-accent transition">STREETOLOGY</a>
-                    </div>
-                    <div className="hidden md:flex gap-8 text-xs font-bold text-gray-400 tracking-widest">
-                        {['HOME','SHOP','ABOUT','CONTACT'].map(L => <a key={L} href={`#${L.toLowerCase()}`} className="hover:text-brand-accent transition duration-300">{L}</a>)}
-                    </div>
-                    <div className="flex gap-5 items-center text-white">
-                        {user ? (
-                            <div className="hidden md:flex items-center gap-3">
-                                {user.role === 'admin' && <span className="text-[10px] bg-brand-accent text-black px-2 py-0.5 font-bold rounded">ADMIN</span>}
-                                <button onClick={logout} className="text-xs font-bold hover:text-brand-accent">LOGOUT</button>
-                            </div>
-                        ) : <a href="#auth" className="hidden md:block"><Icon name="User"/></a>}
-                        <div className="relative cursor-pointer" onClick={()=>setOpen(true)}>
-                            <Icon name="ShoppingBag"/>
-                            {cart.length > 0 && <span className="absolute -top-2 -right-2 bg-brand-accent text-black text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">{cart.length}</span>}
-                        </div>
-                    </div>
-                    <AnimatePresence>
-                        {menu && (
-                            <motion.div initial={{x:'-100%'}} animate={{x:0}} exit={{x:'-100%'}} className="fixed inset-0 bg-black z-50 flex flex-col p-8 md:hidden">
-                                <div className="flex justify-between mb-10"><span className="text-2xl font-bold italic">MENU</span><button onClick={()=>setMenu(false)}><Icon name="X"/></button></div>
-                                <div className="flex flex-col gap-6 text-2xl font-bold text-gray-400">
-                                    {['HOME','SHOP','ABOUT','CONTACT'].map(L => <a key={L} href={`#${L.toLowerCase()}`} onClick={()=>setMenu(false)}>{L}</a>)}
-                                    <div className="h-px bg-gray-800 my-4"></div>
-                                    {user ? <button onClick={()=>{logout();setMenu(false)}} className="text-left text-brand-accent">LOGOUT</button> : <a href="#auth" onClick={()=>setMenu(false)}>LOGIN</a>}
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </nav>
-            );
-        };
-
         const Hero = () => {
-            const { user } = useContext(AuthCtx);
             const { settings } = useContext(SettingsCtx);
-
-            if(settings.locked) {
-                return (
-                    <div className="h-screen relative flex flex-col items-center justify-center bg-black overflow-hidden px-4">
-                        {settings.dropImage && (
-                            <>
-                                <img src={settings.dropImage} className="absolute inset-0 w-full h-full object-cover opacity-20 blur-2xl grayscale"/>
-                                <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black"></div>
-                                <motion.img 
-                                    initial={{scale:0.9, opacity:0}}
-                                    animate={{scale:1, opacity:1}}
-                                    src={settings.dropImage} 
-                                    className="z-10 max-w-full max-h-[65vh] object-contain shadow-[0_0_50px_rgba(255,255,255,0.1)] mb-8"
-                                />
-                            </>
-                        )}
-                        
-                        <div className="z-20 text-center w-full max-w-2xl">
-                            <motion.div initial={{opacity:0}} animate={{opacity:1}} className="text-brand-accent font-mono text-[10px] md:text-sm tracking-[0.5em] mb-4">
-                                UPCOMING DROP
-                            </motion.div>
-                            <motion.h1 initial={{y:30, opacity:0}} animate={{y:0, opacity:1}} className="text-4xl md:text-7xl font-black text-white leading-none mb-6 uppercase">
-                                {settings.dropTitle || "RESTRICTED ACCESS"}
-                            </motion.h1>
-                            <div className="flex flex-col items-center gap-4">
-                                <span className="bg-white text-black px-8 py-2 font-black tracking-[0.3em] text-xs">LOCKED</span>
-                                <a href="#auth" className="text-[10px] text-gray-600 hover:text-white mt-4 flex items-center gap-2 tracking-widest"><Icon name="User" size={12}/> ADMIN LOGIN</a>
-                            </div>
-                        </div>
-                    </div>
-                );
-            }
+            const { user } = useContext(AuthCtx);
+            const isLocked = settings.locked && user?.role !== 'admin';
 
             return (
-                <div className="h-screen relative flex items-center justify-center bg-black overflow-hidden">
-                    <img src="https://images.unsplash.com/photo-1523398002811-999ca8dec234?auto=format&fit=crop&w=1920&q=80" className="absolute inset-0 w-full h-full object-cover opacity-40 filter grayscale contrast-125"/>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/60"></div>
-                    <div className="z-10 text-center px-4 w-full">
-                        <div className="relative inline-block mb-4">
-                            <motion.h1 initial={{y:50, opacity:0}} animate={{y:0, opacity:1}} className="text-5xl md:text-9xl font-bold text-white neon-text tracking-tight leading-none">STREETOLOGY</motion.h1>
-                            <div className="absolute -top-3 right-0 md:-top-5 md:right-1 border border-gray-400 rounded-full w-4 h-4 md:w-6 md:h-6 flex items-center justify-center">
-                                <span className="text-[6px] md:text-[8px] text-gray-400 font-bold">TM</span>
+                <div className="h-screen relative flex flex-col items-center justify-center bg-black overflow-hidden">
+                    {isLocked ? (
+                        <div className="z-20 text-center px-4">
+                            {settings.dropImage && <img src={settings.dropImage} className="absolute inset-0 w-full h-full object-cover opacity-30 blur-xl" />}
+                            <div className="relative z-30">
+                                <p className="text-brand-accent font-mono tracking-[0.5em] mb-4">UPCOMING DROP</p>
+                                <h1 className="text-5xl md:text-8xl font-black text-white uppercase mb-8">{settings.dropTitle || "LOCKED"}</h1>
+                                <a href="#auth" className="bg-white text-black px-8 py-3 font-bold text-xs uppercase tracking-widest">Admin Access</a>
                             </div>
-                            <motion.div initial={{opacity:0}} animate={{opacity:1}} transition={{delay:0.5}} className="absolute right-0 -bottom-4 md:-bottom-6 w-full text-right">
-                                <span className="text-brand-accent text-[10px] md:text-lg font-mono font-bold tracking-[0.2em] md:tracking-[0.3em]">THE STREETS</span>
-                            </motion.div>
                         </div>
-                        <p className="text-gray-400 tracking-[0.5em] font-mono mb-12 text-xs md:text-sm mt-12">EST. 2025 // FUTURE WEAR</p>
-                        <button onClick={() => window.location.hash = user ? '#shop' : '#auth'} className="bg-white text-black px-10 py-4 font-black tracking-widest hover:bg-brand-accent hover:text-white transition duration-300">ENTER STORE</button>
-                    </div>
+                    ) : (
+                        <div className="z-10 text-center px-4">
+                            <h1 className="text-6xl md:text-9xl font-bold text-white neon-text leading-none">STREETOLOGY</h1>
+                            <p className="text-gray-500 tracking-[0.6em] mt-8 text-xs">EST. 2025 // FUTURE WEAR</p>
+                            <button onClick={()=>window.location.hash='#shop'} className="mt-12 bg-white text-black px-12 py-4 font-black tracking-widest hover:bg-brand-accent hover:text-white transition">ENTER SHOP</button>
+                        </div>
+                    )}
                 </div>
             );
         };
 
         const Shop = ({ setCurr }) => {
             const [list, setList] = useState([]);
-            const [loading, setLoading] = useState(true);
-            useEffect(() => {
-                const fetch = async () => { if (window.DB) { setList(await window.DB.getProducts()); setLoading(false); } };
-                fetch(); if(!window.DB) window.addEventListener('db-ready', fetch);
-                return ()=>window.removeEventListener('db-ready', fetch);
-            }, []);
+            useEffect(() => window.DB.syncProducts(setList), []);
             return (
-                <div className="pt-24 px-4 md:px-12 pb-20 min-h-screen">
-                    <div className="flex justify-between items-end mb-12 border-b border-gray-800 pb-4">
-                        <h2 className="text-4xl font-bold tracking-tight">COLLECTION</h2>
-                        <span className="text-brand-accent font-mono text-xs">FALL / WINTER 2025</span>
-                    </div>
-                    {loading ? <div className="text-center text-gray-500 animate-pulse mt-20">LOADING...</div> : 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {list.map(p => {
-                            const isSoldOut = p.status === 'sold_out';
-                            return (
-                                <motion.div whileHover={!isSoldOut ? {y:-5} : {}} key={p._id} onClick={()=>{if(isSoldOut)return; setCurr(p); window.location.hash='#product/'+p._id;}} className={`group cursor-pointer glass-panel p-3 ${isSoldOut ? 'opacity-60 cursor-not-allowed' : ''}`}>
-                                    <div className="h-[400px] overflow-hidden relative mb-4 bg-black">
-                                        <img src={p.images[0]} loading="lazy" className={`w-full h-full object-cover transition duration-500 ${!isSoldOut ? 'group-hover:scale-105 opacity-90 group-hover:opacity-100' : 'grayscale'}`}/>
-                                        {isSoldOut && <div className="absolute inset-0 flex items-center justify-center bg-black/60"><span className="border-2 border-white px-4 py-2 font-bold text-white tracking-widest text-xs">SOLD OUT</span></div>}
-                                    </div>
-                                    <div className="flex justify-between items-start px-1">
-                                        <div><h3 className="text-lg font-bold leading-none">{p.name}</h3><p className="text-[10px] text-gray-500 uppercase mt-1 tracking-widest">{p.category}</p></div>
-                                        <span className="text-brand-accent font-mono text-lg">₹{p.price}</span>
-                                    </div>
-                                </motion.div>
-                            );
-                        })}
-                    </div>}
-                </div>
-            );
-        };
-
-        const Product = ({ p }) => {
-            const { add } = useContext(CartCtx);
-            const [size, setSize] = useState('');
-            const [idx, setIdx] = useState(0);
-            if(!p) return <div className="h-screen flex items-center justify-center text-brand-accent font-mono">LOADING...</div>;
-            return (
-                <div className="pt-24 px-4 md:px-12 pb-20 min-h-screen">
-                    <a href="#shop" className="flex items-center gap-2 text-xs font-bold text-gray-500 mb-8 hover:text-white"><Icon name="ArrowLeft" size={16}/> BACK</a>
-                    <div className="grid md:grid-cols-2 gap-12">
-                        <div className="space-y-4">
-                            <motion.img key={idx} initial={{opacity:0}} animate={{opacity:1}} src={p.images[idx]} className="w-full h-[500px] object-cover bg-black border border-gray-800"/>
-                            <div className="flex gap-2 overflow-x-auto pb-2">{p.images.map((s,i)=><img key={i} src={s} onClick={()=>setIdx(i)} className={`w-20 h-24 object-cover border ${idx===i?'border-brand-accent':'border-transparent'} cursor-pointer`}/>)}</div>
-                        </div>
-                        <div className="flex flex-col justify-center">
-                            <h1 className="text-4xl md:text-6xl font-black italic mb-2 leading-tight">{p.name}</h1>
-                            <p className="text-2xl text-brand-accent mb-6 font-mono">₹{p.price}</p>
-                            <p className="text-gray-400 mb-8 leading-relaxed max-w-md">{p.description}</p>
-                            <div className="mb-8">
-                                <p className="font-bold mb-3 text-xs text-gray-500 tracking-widest">SIZE</p>
-                                <div className="flex gap-3">{['S','M','L','XL'].map(s=><button key={s} onClick={()=>setSize(s)} className={`w-12 h-12 border flex items-center justify-center font-bold transition ${size===s?'bg-white text-black':'border-gray-800 text-gray-500 hover:border-white'}`}>{s}</button>)}</div>
+                <div className="pt-24 px-6 md:px-12 min-h-screen">
+                    <h2 className="text-4xl font-bold mb-12 border-b border-gray-800 pb-4 uppercase italic">Collection</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        {list.map(p => (
+                            <div key={p._id} onClick={()=>{setCurr(p); window.location.hash='#product/'+p._id}} className="glass-panel p-4 cursor-pointer group">
+                                <div className="h-96 overflow-hidden mb-4 bg-black">
+                                    <img src={p.images[0]} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+                                </div>
+                                <div className="flex justify-between font-bold">
+                                    <span>{p.name}</span>
+                                    <span className="text-brand-accent">₹{p.price}</span>
+                                </div>
                             </div>
-                            <button onClick={()=>size?add(p,size):alert('Select Size')} className="w-full bg-brand-accent py-4 font-bold text-black tracking-widest hover:bg-white transition">ADD TO CART</button>
-                        </div>
+                        ))}
                     </div>
                 </div>
             );
         };
 
         const Admin = () => {
-            const { user } = useContext(AuthCtx);
             const { settings, updateSettings } = useContext(SettingsCtx);
             const [tab, setTab] = useState('orders');
-            const [data, setData] = useState({p:[], o:[]});
-            const [form, setForm] = useState({name:'', price:'', cat:'Hoodies', desc:'', imgs:[]});
-            const [dropForm, setDropForm] = useState({ dropTitle: settings.dropTitle, dropImage: settings.dropImage });
-            if(!user || user.role !== 'admin') { window.location.hash = '#auth'; return null; }
-            const refresh = async () => { if(window.DB) { setData({p: await window.DB.getProducts(true), o: await window.DB.getOrders()}); }};
-            useEffect(() => { refresh(); }, []);
-            const handleFiles = (e) => {
-                const files = Array.from(e.target.files);
-                Promise.all(files.map(f => new Promise(r => { const rd = new FileReader(); rd.onload=()=>r(rd.result); rd.readAsDataURL(f); })))
-                .then(imgs => setForm(p => ({...p, imgs: [...p.imgs, ...imgs]})));
-            };
-            const handleDropImage = (e) => {
-                const file = e.target.files[0];
-                if(file) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => setDropForm({...dropForm, dropImage: e.target.result});
-                    reader.readAsDataURL(file);
-                }
-            };
-            const addProd = async (e) => {
+            const [data, setData] = useState({ p: [], o: [] });
+            const [form, setForm] = useState({ name: '', price: '', desc: '', imgs: '' });
+            const [editProd, setEditProd] = useState(null);
+
+            useEffect(() => {
+                window.DB.syncProducts(p => setData(prev => ({ ...prev, p })));
+                window.DB.syncOrders(o => setData(prev => ({ ...prev, o })));
+            }, []);
+
+            const handleSave = async (e) => {
                 e.preventDefault();
-                await window.DB.createProduct({name:form.name, price:Number(form.price), category:form.cat, images:form.imgs, description:form.desc});
-                setForm({name:'', price:'', cat:'Hoodies', desc:'', imgs:[]}); refresh(); alert('Published');
+                const pData = { ...form, price: Number(form.price), images: typeof form.imgs === 'string' ? form.imgs.split(',') : form.imgs };
+                if (editProd) {
+                    await window.DB.updateProduct(editProd._id, pData);
+                    setEditProd(null);
+                } else {
+                    await window.DB.createProduct(pData);
+                }
+                setForm({ name: '', price: '', desc: '', imgs: '' });
+                alert("Done");
             };
+
             return (
-                <div className="pt-24 px-4 md:px-12 pb-20 min-h-screen bg-black">
-                    <div className="flex justify-between items-center mb-8 border-b border-gray-800 pb-4">
-                        <h1 className="text-3xl font-black italic text-brand-accent">ADMIN</h1>
-                        <span className="text-xs font-mono text-gray-500">SECURE CONSOLE</span>
+                <div className="pt-24 px-6 md:px-12 min-h-screen">
+                    <div className="flex gap-6 mb-8 font-bold text-xs uppercase tracking-widest border-b border-gray-800 pb-4">
+                        {['orders', 'manage', 'dropzone'].map(t => (
+                            <button key={t} onClick={() => setTab(t)} className={tab === t ? 'text-brand-accent' : 'text-gray-500'}>{t}</button>
+                        ))}
                     </div>
-                    <div className="flex gap-4 mb-8 overflow-x-auto">
-                        {['orders','add','manage','dropzone'].map(t => <button key={t} onClick={()=>setTab(t)} className={`text-sm font-bold uppercase ${tab===t?'text-white underline decoration-brand-accent':'text-gray-600'}`}>{t}</button>)}
-                    </div>
+
                     {tab === 'orders' && (
                         <div className="space-y-4">
                             {data.o.map(o => (
-                                <div key={o.dbKey} className="glass-panel p-6 flex flex-col gap-4">
-                                    <div className="flex justify-between items-center border-b border-gray-800 pb-2">
-                                        <div><span className="text-brand-accent font-bold text-lg">{o._id}</span><div className="text-[10px] text-gray-500">{o.createdAt}</div></div>
-                                        <span className={`text-[10px] px-2 py-1 font-bold rounded ${o.status==='Delivered'?'bg-green-900 text-green-300':'bg-yellow-900 text-yellow-300'}`}>{o.status.toUpperCase()}</span>
+                                <div key={o.dbKey} className="glass-panel p-6 flex flex-col md:flex-row justify-between gap-4">
+                                    <div>
+                                        <div className="text-brand-accent font-bold mb-2">{o._id} - {o.status}</div>
+                                        <div className="text-sm">{o.shipping?.name} ({o.shipping?.phone})</div>
+                                        <div className="text-xs text-gray-500">{o.shipping?.address}</div>
                                     </div>
-                                    <div className="grid md:grid-cols-2 gap-6 text-sm">
-                                        <div className="space-y-1">
-                                            <p className="text-xs text-gray-500 font-bold">CUSTOMER</p>
-                                            <p>{o.shipping.name} | {o.shipping.phone}</p>
-                                            <p className="text-gray-400">{o.shipping.address}, {o.shipping.city} - {o.shipping.zip}</p>
+                                    <div className="text-right">
+                                        <div className="font-bold mb-4">₹{o.total}</div>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => window.DB.updateOrderStatus(o.dbKey, 'Shipped')} className="bg-white text-black px-3 py-1 text-[10px] font-bold">SHIP</button>
+                                            <button onClick={() => window.DB.updateOrderStatus(o.dbKey, 'Delivered')} className="bg-green-600 text-white px-3 py-1 text-[10px] font-bold">DELIVER</button>
                                         </div>
-                                        <div>
-                                            <p className="text-xs text-gray-500 font-bold mb-1">ITEMS</p>
-                                            {o.items.map((i,x) => <div key={x} className="flex justify-between text-gray-300"><span>{i.name} ({i.size})</span><span>x{i.qty}</span></div>)}
-                                            <div className="border-t border-gray-800 mt-2 pt-2 flex justify-between font-bold text-brand-accent"><span>TOTAL</span><span>₹{o.total}</span></div>
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-2 justify-end pt-2">
-                                        {o.status!=='Shipped' && o.status!=='Delivered' && <button onClick={async()=>{await window.DB.updateOrderStatus(o.dbKey, 'Shipped'); refresh()}} className="text-xs bg-blue-900 text-blue-200 px-3 py-2 font-bold hover:bg-blue-800">MARK SHIPPED</button>}
-                                        {o.status!=='Delivered' && <button onClick={async()=>{await window.DB.updateOrderStatus(o.dbKey, 'Delivered'); refresh()}} className="text-xs bg-green-900 text-green-200 px-3 py-2 font-bold hover:bg-green-800">MARK DELIVERED</button>}
                                     </div>
                                 </div>
                             ))}
                         </div>
                     )}
-                    {tab === 'add' && (
-                        <form onSubmit={addProd} className="max-w-xl glass-panel p-8 space-y-4">
-                            <input required placeholder="Product Name" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} className="w-full p-3"/>
-                            <div className="grid grid-cols-2 gap-4">
-                                <input required type="number" placeholder="Price" value={form.price} onChange={e=>setForm({...form,price:e.target.value})} className="p-3"/>
-                                <select value={form.cat} onChange={e=>setForm({...form,cat:e.target.value})} className="p-3"><option>Hoodies</option><option>Tees</option><option>Pants</option></select>
-                            </div>
-                            <textarea required placeholder="Desc" value={form.desc} onChange={e=>setForm({...form,desc:e.target.value})} className="w-full p-3" rows="3"></textarea>
-                            <label className="block border-2 border-dashed border-gray-700 p-6 text-center cursor-pointer hover:border-brand-accent">
-                                <Icon name="Upload" className="mx-auto mb-2"/><span className="text-xs font-bold">UPLOAD IMAGES</span><input type="file" multiple accept="image/*" onChange={handleFiles} className="hidden" />
-                            </label>
-                            <div className="flex gap-2 flex-wrap">{form.imgs.map((s,i)=><img key={i} src={s} className="w-16 h-16 object-cover border border-gray-700"/>)}</div>
-                            <button className="w-full bg-brand-accent text-black font-bold py-3 hover:bg-white transition">PUBLISH</button>
-                        </form>
-                    )}
+
                     {tab === 'manage' && (
-                        <div className="space-y-4">
-                            {data.p.map(p => (
-                                <div key={p._id} className="flex items-center gap-4 glass-panel p-3">
-                                    <img src={p.images[0]} className="w-16 h-16 object-cover border border-gray-700"/>
-                                    <div className="flex-1 min-w-0">
-                                        <h4 className="font-bold text-white truncate">{p.name}</h4>
-                                        <p className="text-xs text-brand-accent font-mono">₹{p.price}</p>
-                                        <div className={`text-[10px] uppercase font-bold mt-1 ${p.status==='sold_out'?'text-red-500':'text-green-500'}`}>{p.status==='sold_out'?'SOLD OUT':'IN STOCK'}</div>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button onClick={async()=>{await window.DB.toggleStock(p._id, p.status); refresh()}} className="bg-gray-800 p-2 rounded text-white hover:bg-white hover:text-black transition"><Icon name="Box" size={18}/></button>
-                                        <button onClick={async()=>{if(confirm('Delete?')){await window.DB.deleteProduct(p._id); refresh()}}} className="bg-red-900/30 p-2 rounded text-red-500 hover:bg-red-600 hover:text-white transition"><Icon name="Trash2" size={18}/></button>
-                                    </div>
+                        <div className="grid md:grid-cols-2 gap-8">
+                            <form onSubmit={handleSave} className="glass-panel p-6 h-fit space-y-4">
+                                <h3 className="font-bold uppercase text-sm mb-4">{editProd ? 'Edit Product' : 'Add Product'}</h3>
+                                <input placeholder="Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
+                                <input placeholder="Price" type="number" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} required />
+                                <textarea placeholder="Description" value={form.desc} onChange={e => setForm({ ...form, desc: e.target.value })} required />
+                                <input placeholder="Image URLs (comma separated)" value={form.imgs} onChange={e => setForm({ ...form, imgs: e.target.value })} required />
+                                <div className="flex gap-2">
+                                    <button className="flex-1 bg-brand-accent text-white py-3 font-bold uppercase">Save</button>
+                                    {editProd && <button type="button" onClick={()=>{setEditProd(null); setForm({name:'',price:'',desc:'',imgs:''})}} className="bg-gray-700 px-6 font-bold">X</button>}
                                 </div>
-                            ))}
+                            </form>
+                            <div className="space-y-2">
+                                {data.p.map(p => (
+                                    <div key={p._id} className="glass-panel p-3 flex items-center justify-between">
+                                        <div className="flex items-center gap-4">
+                                            <img src={p.images[0]} className="w-10 h-10 object-cover" />
+                                            <div><div className="font-bold text-sm">{p.name}</div><div className="text-xs text-brand-accent font-mono">₹{p.price}</div></div>
+                                        </div>
+                                        <div className="flex gap-4">
+                                            <Icon name="Edit" size={18} className="cursor-pointer text-blue-400" onClick={() => {setEditProd(p); setForm({name:p.name, price:p.price, desc:p.description||p.desc, imgs:p.images.join(',')})}} />
+                                            <Icon name="Trash2" size={18} className="cursor-pointer text-red-500" onClick={() => window.confirm("Delete?") && window.DB.deleteProduct(p._id)} />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
+
                     {tab === 'dropzone' && (
-                        <div className="glass-panel p-8 max-w-xl space-y-6">
-                            <h2 className="text-2xl font-bold mb-4 italic">DROP CONFIG</h2>
-                            <div className={`p-4 border ${settings.locked ? 'border-red-500 bg-red-900/10' : 'border-green-500 bg-green-900/10'} flex justify-between items-center`}>
-                                <div><h3 className="font-bold">STATUS</h3><p className="text-[10px]">{settings.locked ? "LOCKED" : "OPEN"}</p></div>
-                                <button onClick={() => updateSettings({...settings, locked: !settings.locked})} className={`px-4 py-2 font-bold text-black text-xs ${settings.locked ? 'bg-red-500' : 'bg-green-500'}`}>{settings.locked ? 'UNLOCK' : 'LOCK'}</button>
+                        <div className="glass-panel p-8 max-w-xl mx-auto space-y-6">
+                            <div className="flex justify-between items-center border border-brand-accent p-4">
+                                <span className="font-bold uppercase tracking-widest text-xs">Website Lock</span>
+                                <button onClick={() => updateSettings({ ...settings, locked: !settings.locked })} className={`px-6 py-2 font-bold text-black text-[10px] ${settings.locked ? 'bg-red-500' : 'bg-green-500'}`}>{settings.locked ? 'UNLOCK' : 'LOCK'}</button>
                             </div>
-                            <div className="space-y-4">
-                                <div><label className="text-[10px] font-bold text-gray-500 uppercase">Drop Title</label><input value={dropForm.dropTitle} onChange={e=>setDropForm({...dropForm, dropTitle: e.target.value})} className="w-full p-3 mt-1"/></div>
-                                <div>
-                                    <label className="text-[10px] font-bold text-gray-500 uppercase mb-2 block">Poster Image</label>
-                                    <label className="block border-2 border-dashed border-gray-700 p-6 text-center cursor-pointer hover:border-brand-accent">
-                                        <Icon name="Upload" className="mx-auto mb-2 text-gray-500"/><span className="text-[10px] font-bold text-gray-400">SELECT IMAGE</span>
-                                        <input type="file" accept="image/*" onChange={handleDropImage} className="hidden" />
-                                    </label>
-                                    {dropForm.dropImage && (
-                                        <div className="mt-4 relative bg-gray-900 p-2 inline-block border border-gray-800">
-                                            <img src={dropForm.dropImage} className="max-w-[150px] h-auto object-contain shadow-xl border border-gray-700"/>
-                                            <button onClick={()=>setDropForm({...dropForm, dropImage: ""})} className="absolute -top-2 -right-2 bg-red-500 rounded-full p-1"><Icon name="X" size={10}/></button>
-                                        </div>
-                                    )}
-                                </div>
-                                <button onClick={() => { updateSettings({...settings, ...dropForm}); alert('Saved'); }} className="w-full bg-white text-black font-black py-3 hover:bg-brand-accent transition tracking-widest text-xs">SAVE SETTINGS</button>
-                            </div>
+                            <input placeholder="Drop Title" value={settings.dropTitle} onChange={e=>updateSettings({...settings, dropTitle: e.target.value})} />
+                            <input placeholder="Poster Image URL" value={settings.dropImage} onChange={e=>updateSettings({...settings, dropImage: e.target.value})} />
+                            <p className="text-[10px] text-gray-500 text-center">Changes are saved automatically in real-time.</p>
                         </div>
                     )}
-                </div>
-            );
-        };
-
-        const CartSidebar = () => {
-            const { cart, open, setOpen, remove, total } = useContext(CartCtx);
-            return (
-                <AnimatePresence>
-                    {open && (
-                        <>
-                            <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} onClick={()=>setOpen(false)} className="fixed inset-0 bg-black/80 z-50 backdrop-blur-sm"/>
-                            <motion.div initial={{x:'100%'}} animate={{x:0}} exit={{x:'100%'}} className="fixed right-0 top-0 h-full w-full md:w-[450px] bg-[#0a0a0a] border-l border-gray-800 z-50 flex flex-col shadow-2xl">
-                                <div className="p-6 border-b border-gray-800 flex justify-between items-center"><h2 className="font-bold text-xl italic">CART</h2><button onClick={()=>setOpen(false)}><Icon name="X"/></button></div>
-                                <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                                    {cart.map(i => (
-                                        <div key={i._id+i.size} className="flex gap-4 bg-brand-dark p-3 rounded border border-gray-800">
-                                            <img src={i.images[0]} className="w-16 h-20 object-cover"/>
-                                            <div className="flex-1">
-                                                <div className="flex justify-between font-bold text-sm"><span>{i.name}</span><span>₹{i.price*i.qty}</span></div>
-                                                <p className="text-xs text-gray-500 mb-2">{i.size} | Qty: {i.qty}</p>
-                                                <button onClick={()=>remove(i._id,i.size)} className="text-xs text-red-500 font-bold">REMOVE</button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {!cart.length && <div className="text-center text-gray-500 mt-20">Cart is Empty</div>}
-                                </div>
-                                {cart.length>0 && <div className="p-6 border-t border-gray-800"><button onClick={()=>{setOpen(false);window.location.hash='#checkout'}} className="w-full bg-white text-black py-4 font-black hover:bg-brand-accent transition tracking-widest">CHECKOUT (₹{total})</button></div>}
-                            </motion.div>
-                        </>
-                    )}
-                </AnimatePresence>
-            );
-        };
-
-        const Checkout = () => {
-            const { cart, total, clear } = useContext(CartCtx);
-            const { user } = useContext(AuthCtx);
-            const [f, setF] = useState({ name: user?.name||'', phone: user?.phone||'', address: '', zip: '', city: '' });
-            const submit = async (e) => {
-                e.preventDefault();
-                await window.DB.createOrder({ items: cart, total, user: user?._id||'guest', shipping: f, paymentMethod: 'COD' });
-                clear(); window.location.hash = '#success';
-            };
-            if(!cart.length) return <div className="pt-32 text-center text-gray-500">Cart Empty</div>;
-            return (
-                <div className="pt-24 px-4 md:px-12 pb-20 min-h-screen">
-                    <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-12">
-                        <form onSubmit={submit} className="space-y-6">
-                            <h2 className="text-3xl font-black italic mb-4">CHECKOUT</h2>
-                            <div className="space-y-4">
-                                <input placeholder="Full Name" required value={f.name} onChange={e=>setF({...f,name:e.target.value})} className="w-full p-4"/>
-                                <input placeholder="Phone" required value={f.phone} onChange={e=>setF({...f,phone:e.target.value})} className="w-full p-4"/>
-                                <input placeholder="Address" required value={f.address} onChange={e=>setF({...f,address:e.target.value})} className="w-full p-4"/>
-                                <div className="grid grid-cols-2 gap-4"><input placeholder="City" required value={f.city} onChange={e=>setF({...f,city:e.target.value})} className="w-full p-4"/><input placeholder="Zip" required value={f.zip} onChange={e=>setF({...f,zip:e.target.value})} className="w-full p-4"/></div>
-                            </div>
-                            <div className="p-4 border border-brand-accent bg-brand-accent/10 flex items-center gap-3"><Icon name="Package" className="text-brand-accent"/><span className="font-bold uppercase text-xs">CASH ON DELIVERY ONLY</span></div>
-                            <button className="w-full bg-white text-black font-black py-4 hover:bg-brand-accent transition tracking-widest">PLACE ORDER - ₹{total}</button>
-                        </form>
-                        <div className="glass-panel p-8 h-fit">
-                            <h3 className="font-bold text-gray-400 mb-6 text-xs tracking-widest uppercase">Summary</h3>
-                            {cart.map(i=><div key={i._id+i.size} className="flex justify-between items-center mb-4 text-sm border-b border-gray-800 pb-2"><span>{i.name} <span className="text-gray-500">x{i.qty}</span></span><span className="font-mono">₹{i.price*i.qty}</span></div>)}
-                            <div className="flex justify-between font-bold text-xl mt-4 text-brand-accent"><span>TOTAL</span><span>₹{total}</span></div>
-                        </div>
-                    </div>
                 </div>
             );
         };
 
         const Auth = () => {
-            const { login, register } = useContext(AuthCtx);
-            const [isLogin, setIsLogin] = useState(true);
-            const [f, setF] = useState({ name: '', phone: '', pass: '' });
-            
-            const submit = async () => {
-                if(!f.phone || !f.pass) return alert("Please fill all fields");
-                let u = isLogin ? await login(f.phone, f.pass) : await register(f.name, f.phone, f.pass);
-                if(u) window.location.hash = u.role==='admin' ? '#admin' : '#home';
+            const { login } = useContext(AuthCtx);
+            const [f, setF] = useState({ phone: '', pass: '' });
+            const handleLogin = async () => {
+                try {
+                    const u = await login(f.phone, f.pass);
+                    window.location.hash = u.role === 'admin' ? '#admin' : '#home';
+                } catch(e) { alert(e); }
             };
-            
             return (
-                <div className="h-screen flex items-center justify-center bg-black bg-[url('https://images.unsplash.com/photo-1483119624769-b1a73c2537c5?auto=format&fit=crop&w=1920&q=80')] bg-cover">
-                    <div className="glass-panel p-10 w-full max-w-sm backdrop-blur-xl bg-black/80">
-                        <h2 className="text-3xl font-black italic text-center mb-6">{isLogin?'LOGIN':'JOIN'}</h2>
-                        {!isLogin && <input placeholder="Name" value={f.name} onChange={e=>setF({...f,name:e.target.value})} className="w-full mb-3 p-3"/>}
-                        <input placeholder="Phone / Email" value={f.phone} onChange={e=>setF({...f,phone:e.target.value})} className="w-full mb-3 p-3"/>
-                        <input placeholder="Password" type="password" value={f.pass} onChange={e=>setF({...f,pass:e.target.value})} className="w-full mb-6 p-3"/>
-                        <button onClick={submit} className="w-full bg-brand-accent text-black font-bold py-3 hover:bg-white">{isLogin?'ENTER':'REGISTER'}</button>
-                        <p className="text-center text-xs text-gray-500 mt-4 cursor-pointer" onClick={()=>setIsLogin(!isLogin)}>{isLogin ? "Create account" : "Back to login"}</p>
+                <div className="h-screen flex items-center justify-center px-4">
+                    <div className="glass-panel p-10 w-full max-w-sm">
+                        <h2 className="text-3xl font-black italic mb-8 text-center uppercase">Login</h2>
+                        <input className="mb-4" placeholder="Phone / Email" onChange={e=>setF({...f, phone: e.target.value})} />
+                        <input className="mb-8" type="password" placeholder="Password" onChange={e=>setF({...f, pass: e.target.value})} />
+                        <button onClick={handleLogin} className="w-full bg-brand-accent py-4 font-black uppercase tracking-widest">Enter</button>
                     </div>
                 </div>
             );
         };
 
-        const App = () => {
+        // ROOT COMPONENT TO FIX CONTEXT ERRORS
+        const Main = () => {
             const [view, setView] = useState('home');
             const [curr, setCurr] = useState(null);
+            const { user } = useContext(AuthCtx);
+            const { settings } = useContext(SettingsCtx);
+
             useEffect(() => {
                 const h = () => {
                     const hash = window.location.hash.slice(1) || 'home';
-                    if(hash.includes('product/')) {
-                        if(window.DB) window.DB.getProducts().then(p => setCurr(p.find(x => x._id === hash.split('/')[1])));
-                        setView('product');
-                    } else setView(hash);
+                    if(hash.includes('product/')) setView('product');
+                    else setView(hash);
                 };
-                window.addEventListener('hashchange', h); h(); return () => window.removeEventListener('hashchange', h);
+                window.addEventListener('hashchange', h); h();
+                return () => window.removeEventListener('hashchange', h);
             }, []);
+
+            // Protection: Redirect users to home if locked
+            const activeView = (settings.locked && user?.role !== 'admin' && view !== 'auth') ? 'home' : view;
+
             return (
-                <AuthProvider>
-                    <SettingsProvider>
-                        <CartProvider>
-                            <Navbar/>
-                            <AnimatePresence mode="wait">
-                                {view === 'home' && <Hero key="h"/>}
-                                {view === 'shop' && <Shop key="s" setCurr={setCurr}/>}
-                                {view === 'product' && <Product key="p" p={curr}/>}
-                                {view === 'checkout' && <Checkout key="c"/>}
-                                {view === 'admin' && <Admin key="a"/>}
-                                {view === 'auth' && <Auth key="au"/>}
-                                {view === 'success' && <div key="s" className="h-screen flex items-center justify-center flex-col"><Icon name="CheckCircle" size={60} className="text-green-500 mb-4"/><h1 className="text-3xl font-bold">ORDER PLACED</h1><a href="#shop" className="underline mt-4 text-gray-500 tracking-widest text-xs">CONTINUE SHOPPING</a></div>}
-                                {view === 'about' && <div className="pt-32 text-center max-w-2xl mx-auto px-4"><h1 className="text-4xl font-bold mb-4 italic">STREETOLOGY</h1><p className="text-gray-400 tracking-widest text-sm leading-relaxed">Luxury. Streets. Future. Born in 2025.</p></div>}
-                                {view === 'contact' && <div className="pt-32 text-center"><h1 className="text-4xl font-bold mb-4">CONTACT</h1><a href="mailto:support@streetology.com" className="text-brand-accent text-xl font-mono">support@streetology.com</a></div>}
-                            </AnimatePresence>
-                            <CartSidebar/>
-                        </CartProvider>
-                    </SettingsProvider>
-                </AuthProvider>
+                <div>
+                    <nav className="fixed w-full top-0 z-50 glass-nav h-16 flex items-center justify-between px-6">
+                        <a href="#home" className="text-xl font-black italic tracking-tighter">STREETOLOGY</a>
+                        <div className="flex gap-4 items-center">
+                            {user?.role === 'admin' && <a href="#admin" className="text-[10px] font-bold bg-white text-black px-2 py-1">CONSOLE</a>}
+                            {!user && <a href="#auth"><Icon name="User" /></a>}
+                        </div>
+                    </nav>
+                    <AnimatePresence mode="wait">
+                        {activeView === 'home' && <Hero key="h" />}
+                        {activeView === 'shop' && <Shop key="s" setCurr={setCurr} />}
+                        {activeView === 'auth' && <Auth key="a" />}
+                        {activeView === 'admin' && <Admin key="ad" />}
+                    </AnimatePresence>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [user, setUser] = useState(JSON.parse(localStorage.getItem('street_user')));
+            const [settings, setSettings] = useState({ locked: false });
+
+            useEffect(() => window.DB.syncSettings(setSettings), []);
+
+            return (
+                <AuthCtx.Provider value={{ user, login: async(p, pw) => { const u = await window.DB.login(p, pw); setUser(u); localStorage.setItem('street_user', JSON.stringify(u)); return u; } }}>
+                    <SettingsCtx.Provider value={{ settings, updateSettings: window.DB.updateSettings }}>
+                        <Main />
+                    </SettingsCtx.Provider>
+                </AuthCtx.Provider>
             );
         };
 
@@ -667,4 +320,3 @@
     </script>
 </body>
 </html>
-
