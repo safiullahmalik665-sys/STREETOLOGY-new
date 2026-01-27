@@ -104,6 +104,11 @@
                 await set(r, {...p, _id: r.key});
                 CACHE.products = null;
             },
+            async toggleStock(id, currentStatus) {
+                const newStatus = currentStatus === 'sold_out' ? 'active' : 'sold_out';
+                await update(ref(db, `products/${id}`), { status: newStatus });
+                CACHE.products = null;
+            },
             async deleteProduct(id) { 
                 await remove(ref(db, `products/${id}`)); 
                 CACHE.products = null; 
@@ -196,7 +201,6 @@
             return <CartCtx.Provider value={{cart, open, setOpen, add, remove, total, clear: ()=>setCart([])}}>{children}</CartCtx.Provider>;
         };
 
-        // GLOBAL SETTINGS PROVIDER
         const SettingsProvider = ({children}) => {
             const [settings, setSettings] = useState({locked: false, dropTitle: "", dropImage: ""});
             useEffect(() => {
@@ -212,10 +216,7 @@
             const { user, logout } = useContext(AuthCtx);
             const { settings } = useContext(SettingsCtx);
             const [menu, setMenu] = useState(false);
-
-            // If Locked, hide Navbar except for Admin
             if(settings.locked) return null;
-
             return (
                 <nav className="fixed w-full top-0 z-50 glass-nav h-16 flex items-center justify-between px-6 shadow-2xl transition-all">
                     <div className="flex items-center gap-4">
@@ -257,70 +258,55 @@
             const { user } = useContext(AuthCtx);
             const { settings } = useContext(SettingsCtx);
 
-            // DROP MODE VIEW (Locked)
+            // FIXED DROP MODE VIEW
             if(settings.locked) {
                 return (
                     <div className="h-screen relative flex flex-col items-center justify-center bg-black overflow-hidden px-4">
                         {settings.dropImage && (
                             <>
-                                <img src={settings.dropImage} className="absolute inset-0 w-full h-full object-cover opacity-60 filter grayscale contrast-125"/>
-                                <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/80"></div>
+                                <img src={settings.dropImage} className="absolute inset-0 w-full h-full object-cover opacity-20 blur-2xl grayscale"/>
+                                <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black"></div>
+                                <motion.img 
+                                    initial={{scale:0.9, opacity:0}}
+                                    animate={{scale:1, opacity:1}}
+                                    src={settings.dropImage} 
+                                    className="z-10 max-w-full max-h-[65vh] object-contain shadow-[0_0_50px_rgba(255,255,255,0.1)] mb-8"
+                                />
                             </>
                         )}
                         
-                        <div className="z-10 text-center w-full max-w-2xl">
-                            <motion.div initial={{opacity:0}} animate={{opacity:1}} className="text-brand-accent font-mono text-xs md:text-sm tracking-[0.5em] mb-4">
+                        <div className="z-20 text-center w-full max-w-2xl">
+                            <motion.div initial={{opacity:0}} animate={{opacity:1}} className="text-brand-accent font-mono text-[10px] md:text-sm tracking-[0.5em] mb-4">
                                 UPCOMING DROP
                             </motion.div>
-                            <motion.h1 initial={{y:30, opacity:0}} animate={{y:0, opacity:1}} className="text-5xl md:text-8xl font-black text-white leading-none mb-6">
+                            <motion.h1 initial={{y:30, opacity:0}} animate={{y:0, opacity:1}} className="text-4xl md:text-7xl font-black text-white leading-none mb-6 uppercase">
                                 {settings.dropTitle || "RESTRICTED ACCESS"}
                             </motion.h1>
-                            <div className="flex flex-col items-center gap-4 mt-8">
-                                <span className="bg-white text-black px-6 py-2 font-bold tracking-widest text-sm">LOCKED</span>
-                                <a href="#auth" className="text-xs text-gray-500 hover:text-white mt-4 flex items-center gap-2"><Icon name="User" size={14}/> ADMIN ACCESS</a>
+                            <div className="flex flex-col items-center gap-4">
+                                <span className="bg-white text-black px-8 py-2 font-black tracking-[0.3em] text-xs">LOCKED</span>
+                                <a href="#auth" className="text-[10px] text-gray-600 hover:text-white mt-4 flex items-center gap-2 tracking-widest"><Icon name="User" size={12}/> ADMIN LOGIN</a>
                             </div>
                         </div>
                     </div>
                 );
             }
 
-            // NORMAL HERO
             return (
                 <div className="h-screen relative flex items-center justify-center bg-black overflow-hidden">
                     <img src="https://images.unsplash.com/photo-1523398002811-999ca8dec234?auto=format&fit=crop&w=1920&q=80" className="absolute inset-0 w-full h-full object-cover opacity-40 filter grayscale contrast-125"/>
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/60"></div>
                     <div className="z-10 text-center px-4 w-full">
-                        
-                        {/* LOGO AREA */}
                         <div className="relative inline-block mb-4">
-                            <motion.h1 
-                                initial={{y:50, opacity:0}} 
-                                animate={{y:0, opacity:1}} 
-                                className="text-5xl md:text-9xl font-bold text-white neon-text tracking-tight leading-none"
-                            >
-                                STREETOLOGY
-                            </motion.h1>
-                            
-                            {/* TM MARK - CIRCLE */}
+                            <motion.h1 initial={{y:50, opacity:0}} animate={{y:0, opacity:1}} className="text-5xl md:text-9xl font-bold text-white neon-text tracking-tight leading-none">STREETOLOGY</motion.h1>
                             <div className="absolute -top-3 right-0 md:-top-5 md:right-1 border border-gray-400 rounded-full w-4 h-4 md:w-6 md:h-6 flex items-center justify-center">
                                 <span className="text-[6px] md:text-[8px] text-gray-400 font-bold">TM</span>
                             </div>
-                            
-                            {/* TAGLINE - FLUSH RIGHT */}
-                            <motion.div 
-                                initial={{opacity:0}} 
-                                animate={{opacity:1}} 
-                                transition={{delay:0.5}}
-                                className="absolute right-0 -bottom-4 md:-bottom-6 w-full text-right"
-                            >
-                                <span className="text-brand-accent text-[10px] md:text-lg font-mono font-bold tracking-[0.2em] md:tracking-[0.3em]">
-                                    THE STREETS
-                                </span>
+                            <motion.div initial={{opacity:0}} animate={{opacity:1}} transition={{delay:0.5}} className="absolute right-0 -bottom-4 md:-bottom-6 w-full text-right">
+                                <span className="text-brand-accent text-[10px] md:text-lg font-mono font-bold tracking-[0.2em] md:tracking-[0.3em]">THE STREETS</span>
                             </motion.div>
                         </div>
-
                         <p className="text-gray-400 tracking-[0.5em] font-mono mb-12 text-xs md:text-sm mt-12">EST. 2025 // FUTURE WEAR</p>
-                        <button onClick={() => window.location.hash = user ? '#shop' : '#auth'} className="bg-white text-black px-10 py-4 font-black tracking-widest hover:bg-brand-accent hover:text-white transition duration-300 clip-path-slant">ENTER STORE</button>
+                        <button onClick={() => window.location.hash = user ? '#shop' : '#auth'} className="bg-white text-black px-10 py-4 font-black tracking-widest hover:bg-brand-accent hover:text-white transition duration-300">ENTER STORE</button>
                     </div>
                 </div>
             );
@@ -329,20 +315,11 @@
         const Shop = ({ setCurr }) => {
             const [list, setList] = useState([]);
             const [loading, setLoading] = useState(true);
-
             useEffect(() => {
-                const fetch = async () => {
-                    if (window.DB) {
-                        const products = await window.DB.getProducts();
-                        setList(products);
-                        setLoading(false);
-                    }
-                };
-                fetch();
-                if(!window.DB) window.addEventListener('db-ready', fetch);
+                const fetch = async () => { if (window.DB) { setList(await window.DB.getProducts()); setLoading(false); } };
+                fetch(); if(!window.DB) window.addEventListener('db-ready', fetch);
                 return ()=>window.removeEventListener('db-ready', fetch);
             }, []);
-            
             return (
                 <div className="pt-24 px-4 md:px-12 pb-20 min-h-screen">
                     <div className="flex justify-between items-end mb-12 border-b border-gray-800 pb-4">
@@ -354,24 +331,13 @@
                         {list.map(p => {
                             const isSoldOut = p.status === 'sold_out';
                             return (
-                                <motion.div 
-                                    whileHover={!isSoldOut ? {y:-5} : {}} 
-                                    key={p._id} 
-                                    onClick={()=>{
-                                        if(isSoldOut) return;
-                                        setCurr(p); window.location.hash='#product/'+p._id;
-                                    }} 
-                                    className={`group cursor-pointer glass-panel p-3 ${isSoldOut ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                >
+                                <motion.div whileHover={!isSoldOut ? {y:-5} : {}} key={p._id} onClick={()=>{if(isSoldOut)return; setCurr(p); window.location.hash='#product/'+p._id;}} className={`group cursor-pointer glass-panel p-3 ${isSoldOut ? 'opacity-60 cursor-not-allowed' : ''}`}>
                                     <div className="h-[400px] overflow-hidden relative mb-4 bg-black">
                                         <img src={p.images[0]} loading="lazy" className={`w-full h-full object-cover transition duration-500 ${!isSoldOut ? 'group-hover:scale-105 opacity-90 group-hover:opacity-100' : 'grayscale'}`}/>
                                         {isSoldOut && <div className="absolute inset-0 flex items-center justify-center bg-black/60"><span className="border-2 border-white px-4 py-2 font-bold text-white tracking-widest text-xs">SOLD OUT</span></div>}
                                     </div>
                                     <div className="flex justify-between items-start px-1">
-                                        <div>
-                                            <h3 className="text-lg font-bold leading-none">{p.name}</h3>
-                                            <p className="text-[10px] text-gray-500 uppercase mt-1 tracking-widest">{p.category}</p>
-                                        </div>
+                                        <div><h3 className="text-lg font-bold leading-none">{p.name}</h3><p className="text-[10px] text-gray-500 uppercase mt-1 tracking-widest">{p.category}</p></div>
                                         <span className="text-brand-accent font-mono text-lg">₹{p.price}</span>
                                     </div>
                                 </motion.div>
@@ -416,21 +382,15 @@
             const [tab, setTab] = useState('orders');
             const [data, setData] = useState({p:[], o:[]});
             const [form, setForm] = useState({name:'', price:'', cat:'Hoodies', desc:'', imgs:[]});
-            
-            // Local state for Dropzone settings
             const [dropForm, setDropForm] = useState({ dropTitle: settings.dropTitle, dropImage: settings.dropImage });
-
             if(!user || user.role !== 'admin') { window.location.hash = '#auth'; return null; }
-
             const refresh = async () => { if(window.DB) { setData({p: await window.DB.getProducts(true), o: await window.DB.getOrders()}); }};
             useEffect(() => { refresh(); }, []);
-
             const handleFiles = (e) => {
                 const files = Array.from(e.target.files);
                 Promise.all(files.map(f => new Promise(r => { const rd = new FileReader(); rd.onload=()=>r(rd.result); rd.readAsDataURL(f); })))
                 .then(imgs => setForm(p => ({...p, imgs: [...p.imgs, ...imgs]})));
             };
-
             const handleDropImage = (e) => {
                 const file = e.target.files[0];
                 if(file) {
@@ -439,13 +399,11 @@
                     reader.readAsDataURL(file);
                 }
             };
-
             const addProd = async (e) => {
                 e.preventDefault();
                 await window.DB.createProduct({name:form.name, price:Number(form.price), category:form.cat, images:form.imgs, description:form.desc});
                 setForm({name:'', price:'', cat:'Hoodies', desc:'', imgs:[]}); refresh(); alert('Published');
             };
-
             return (
                 <div className="pt-24 px-4 md:px-12 pb-20 min-h-screen bg-black">
                     <div className="flex justify-between items-center mb-8 border-b border-gray-800 pb-4">
@@ -455,7 +413,6 @@
                     <div className="flex gap-4 mb-8 overflow-x-auto">
                         {['orders','add','manage','dropzone'].map(t => <button key={t} onClick={()=>setTab(t)} className={`text-sm font-bold uppercase ${tab===t?'text-white underline decoration-brand-accent':'text-gray-600'}`}>{t}</button>)}
                     </div>
-
                     {tab === 'orders' && (
                         <div className="space-y-4">
                             {data.o.map(o => (
@@ -469,11 +426,10 @@
                                             <p className="text-xs text-gray-500 font-bold">CUSTOMER</p>
                                             <p>{o.shipping.name} | {o.shipping.phone}</p>
                                             <p className="text-gray-400">{o.shipping.address}, {o.shipping.city} - {o.shipping.zip}</p>
-                                            <p className="text-xs text-gray-500 mt-1">PAYMENT: <span className="text-white font-bold">{o.paymentMethod}</span></p>
                                         </div>
                                         <div>
                                             <p className="text-xs text-gray-500 font-bold mb-1">ITEMS</p>
-                                            {o.items.map((i,x) => <div key={x} className="flex justify-between text-gray-300"><span>{i.name} <span className="text-xs text-gray-500">({i.size})</span></span><span>x{i.qty}</span></div>)}
+                                            {o.items.map((i,x) => <div key={x} className="flex justify-between text-gray-300"><span>{i.name} ({i.size})</span><span>x{i.qty}</span></div>)}
                                             <div className="border-t border-gray-800 mt-2 pt-2 flex justify-between font-bold text-brand-accent"><span>TOTAL</span><span>₹{o.total}</span></div>
                                         </div>
                                     </div>
@@ -485,7 +441,6 @@
                             ))}
                         </div>
                     )}
-
                     {tab === 'add' && (
                         <form onSubmit={addProd} className="max-w-xl glass-panel p-8 space-y-4">
                             <input required placeholder="Product Name" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} className="w-full p-3"/>
@@ -495,19 +450,15 @@
                             </div>
                             <textarea required placeholder="Desc" value={form.desc} onChange={e=>setForm({...form,desc:e.target.value})} className="w-full p-3" rows="3"></textarea>
                             <label className="block border-2 border-dashed border-gray-700 p-6 text-center cursor-pointer hover:border-brand-accent">
-                                <Icon name="Upload" className="mx-auto mb-2"/>
-                                <span className="text-xs font-bold">UPLOAD IMAGES</span>
-                                <input type="file" multiple accept="image/*" onChange={handleFiles} className="hidden" />
+                                <Icon name="Upload" className="mx-auto mb-2"/><span className="text-xs font-bold">UPLOAD IMAGES</span><input type="file" multiple accept="image/*" onChange={handleFiles} className="hidden" />
                             </label>
                             <div className="flex gap-2 flex-wrap">{form.imgs.map((s,i)=><img key={i} src={s} className="w-16 h-16 object-cover border border-gray-700"/>)}</div>
                             <button className="w-full bg-brand-accent text-black font-bold py-3 hover:bg-white transition">PUBLISH</button>
                         </form>
                     )}
-
                     {tab === 'manage' && (
                         <div className="space-y-4">
-                            {data.p.length === 0 ? <p className="text-gray-500">No products found.</p> :
-                            data.p.map(p => (
+                            {data.p.map(p => (
                                 <div key={p._id} className="flex items-center gap-4 glass-panel p-3">
                                     <img src={p.images[0]} className="w-16 h-16 object-cover border border-gray-700"/>
                                     <div className="flex-1 min-w-0">
@@ -523,45 +474,29 @@
                             ))}
                         </div>
                     )}
-
-                    {/* DROPZONE TAB */}
                     {tab === 'dropzone' && (
                         <div className="glass-panel p-8 max-w-xl space-y-6">
-                            <h2 className="text-2xl font-bold mb-4">DROP CONFIGURATION</h2>
-                            
-                            <div className={`p-4 border ${settings.locked ? 'border-red-500 bg-red-900/20' : 'border-green-500 bg-green-900/20'} flex justify-between items-center`}>
-                                <div>
-                                    <h3 className="font-bold">SITE STATUS</h3>
-                                    <p className="text-xs">{settings.locked ? "LOCKED (Only Drop Page Visible)" : "OPEN (Shop Accessible)"}</p>
-                                </div>
-                                <button onClick={() => updateSettings({...settings, locked: !settings.locked})} className={`px-4 py-2 font-bold text-black ${settings.locked ? 'bg-red-500' : 'bg-green-500'}`}>
-                                    {settings.locked ? 'UNLOCK SITE' : 'LOCK SITE'}
-                                </button>
+                            <h2 className="text-2xl font-bold mb-4 italic">DROP CONFIG</h2>
+                            <div className={`p-4 border ${settings.locked ? 'border-red-500 bg-red-900/10' : 'border-green-500 bg-green-900/10'} flex justify-between items-center`}>
+                                <div><h3 className="font-bold">STATUS</h3><p className="text-[10px]">{settings.locked ? "LOCKED" : "OPEN"}</p></div>
+                                <button onClick={() => updateSettings({...settings, locked: !settings.locked})} className={`px-4 py-2 font-bold text-black text-xs ${settings.locked ? 'bg-red-500' : 'bg-green-500'}`}>{settings.locked ? 'UNLOCK' : 'LOCK'}</button>
                             </div>
-
                             <div className="space-y-4">
+                                <div><label className="text-[10px] font-bold text-gray-500 uppercase">Drop Title</label><input value={dropForm.dropTitle} onChange={e=>setDropForm({...dropForm, dropTitle: e.target.value})} className="w-full p-3 mt-1"/></div>
                                 <div>
-                                    <label className="text-xs font-bold text-gray-500">DROP TITLE</label>
-                                    <input value={dropForm.dropTitle} onChange={e=>setDropForm({...dropForm, dropTitle: e.target.value})} className="w-full p-3" placeholder="e.g. THE BLACKOUT DROP"/>
-                                </div>
-                                
-                                {/* REPLACED URL INPUT WITH FILE UPLOAD */}
-                                <div>
-                                    <label className="text-xs font-bold text-gray-500 mb-2 block">DROP IMAGE (OPTIONAL)</label>
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase mb-2 block">Poster Image</label>
                                     <label className="block border-2 border-dashed border-gray-700 p-6 text-center cursor-pointer hover:border-brand-accent">
-                                        <Icon name="Upload" className="mx-auto mb-2 text-gray-500"/>
-                                        <span className="text-xs font-bold text-gray-400">CLICK TO SELECT IMAGE</span>
+                                        <Icon name="Upload" className="mx-auto mb-2 text-gray-500"/><span className="text-[10px] font-bold text-gray-400">SELECT IMAGE</span>
                                         <input type="file" accept="image/*" onChange={handleDropImage} className="hidden" />
                                     </label>
                                     {dropForm.dropImage && (
-                                        <div className="mt-4 relative w-fit">
-                                            <img src={dropForm.dropImage} className="w-32 h-32 object-cover border border-gray-700"/>
-                                            <button onClick={()=>setDropForm({...dropForm, dropImage: ""})} className="absolute -top-2 -right-2 bg-red-500 rounded-full p-1"><Icon name="X" size={12}/></button>
+                                        <div className="mt-4 relative bg-gray-900 p-2 inline-block border border-gray-800">
+                                            <img src={dropForm.dropImage} className="max-w-[150px] h-auto object-contain shadow-xl border border-gray-700"/>
+                                            <button onClick={()=>setDropForm({...dropForm, dropImage: ""})} className="absolute -top-2 -right-2 bg-red-500 rounded-full p-1"><Icon name="X" size={10}/></button>
                                         </div>
                                     )}
                                 </div>
-
-                                <button onClick={() => { updateSettings({...settings, ...dropForm}); alert('Drop settings saved!'); }} className="w-full bg-white text-black font-bold py-3 hover:bg-brand-accent">SAVE SETTINGS</button>
+                                <button onClick={() => { updateSettings({...settings, ...dropForm}); alert('Saved'); }} className="w-full bg-white text-black font-black py-3 hover:bg-brand-accent transition tracking-widest text-xs">SAVE SETTINGS</button>
                             </div>
                         </div>
                     )}
@@ -603,15 +538,12 @@
             const { cart, total, clear } = useContext(CartCtx);
             const { user } = useContext(AuthCtx);
             const [f, setF] = useState({ name: user?.name||'', phone: user?.phone||'', address: '', zip: '', city: '' });
-            
             const submit = async (e) => {
                 e.preventDefault();
                 await window.DB.createOrder({ items: cart, total, user: user?._id||'guest', shipping: f, paymentMethod: 'COD' });
                 clear(); window.location.hash = '#success';
             };
-
             if(!cart.length) return <div className="pt-32 text-center text-gray-500">Cart Empty</div>;
-
             return (
                 <div className="pt-24 px-4 md:px-12 pb-20 min-h-screen">
                     <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-12">
@@ -621,18 +553,13 @@
                                 <input placeholder="Full Name" required value={f.name} onChange={e=>setF({...f,name:e.target.value})} className="w-full p-4"/>
                                 <input placeholder="Phone" required value={f.phone} onChange={e=>setF({...f,phone:e.target.value})} className="w-full p-4"/>
                                 <input placeholder="Address" required value={f.address} onChange={e=>setF({...f,address:e.target.value})} className="w-full p-4"/>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <input placeholder="City" required value={f.city} onChange={e=>setF({...f,city:e.target.value})} className="w-full p-4"/>
-                                    <input placeholder="Zip" required value={f.zip} onChange={e=>setF({...f,zip:e.target.value})} className="w-full p-4"/>
-                                </div>
+                                <div className="grid grid-cols-2 gap-4"><input placeholder="City" required value={f.city} onChange={e=>setF({...f,city:e.target.value})} className="w-full p-4"/><input placeholder="Zip" required value={f.zip} onChange={e=>setF({...f,zip:e.target.value})} className="w-full p-4"/></div>
                             </div>
-                            <div className="p-4 border border-brand-accent bg-brand-accent/10 flex items-center gap-3">
-                                <Icon name="Package" className="text-brand-accent"/><span className="font-bold">CASH ON DELIVERY</span>
-                            </div>
-                            <button className="w-full bg-white text-black font-black py-4 hover:bg-brand-accent transition">PLACE ORDER - ₹{total}</button>
+                            <div className="p-4 border border-brand-accent bg-brand-accent/10 flex items-center gap-3"><Icon name="Package" className="text-brand-accent"/><span className="font-bold uppercase text-xs">CASH ON DELIVERY ONLY</span></div>
+                            <button className="w-full bg-white text-black font-black py-4 hover:bg-brand-accent transition tracking-widest">PLACE ORDER - ₹{total}</button>
                         </form>
                         <div className="glass-panel p-8 h-fit">
-                            <h3 className="font-bold text-gray-400 mb-6 text-xs tracking-widest">ORDER SUMMARY</h3>
+                            <h3 className="font-bold text-gray-400 mb-6 text-xs tracking-widest uppercase">Summary</h3>
                             {cart.map(i=><div key={i._id+i.size} className="flex justify-between items-center mb-4 text-sm border-b border-gray-800 pb-2"><span>{i.name} <span className="text-gray-500">x{i.qty}</span></span><span className="font-mono">₹{i.price*i.qty}</span></div>)}
                             <div className="flex justify-between font-bold text-xl mt-4 text-brand-accent"><span>TOTAL</span><span>₹{total}</span></div>
                         </div>
@@ -641,7 +568,6 @@
             );
         };
 
-        // SHARED PAGES
         const Auth = () => {
             const { login, register } = useContext(AuthCtx);
             const [isLogin, setIsLogin] = useState(true);
@@ -651,14 +577,14 @@
                 if(u) window.location.hash = u.role==='admin' ? '#admin' : '#home';
             };
             return (
-                <div className="h-screen flex items-center justify-center bg-[url('https://images.unsplash.com/photo-1483119624769-b1a73c2537c5?auto=format&fit=crop&w=1920&q=80')] bg-cover">
+                <div className="h-screen flex items-center justify-center bg-black bg-[url('https://images.unsplash.com/photo-1483119624769-b1a73c2537c5?auto=format&fit=crop&w=1920&q=80')] bg-cover">
                     <div className="glass-panel p-10 w-full max-w-sm backdrop-blur-xl bg-black/80">
                         <h2 className="text-3xl font-black italic text-center mb-6">{isLogin?'LOGIN':'JOIN'}</h2>
                         {!isLogin && <input placeholder="Name" onChange={e=>setF({...f,name:e.target.value})} className="w-full mb-3 p-3"/>}
                         <input placeholder="Phone" onChange={e=>setF({...f,phone:e.target.value})} className="w-full mb-3 p-3"/>
                         <input placeholder="Password" type="password" onChange={e=>setF({...f,pass:e.target.value})} className="w-full mb-6 p-3"/>
                         <button onClick={submit} className="w-full bg-brand-accent text-black font-bold py-3 hover:bg-white">{isLogin?'ENTER':'REGISTER'}</button>
-                        <p className="text-center text-xs text-gray-500 mt-4 cursor-pointer" onClick={()=>setIsLogin(!isLogin)}>{isLogin ? "No account? Register" : "Login"}</p>
+                        <p className="text-center text-xs text-gray-500 mt-4 cursor-pointer" onClick={()=>setIsLogin(!isLogin)}>{isLogin ? "Create account" : "Back to login"}</p>
                     </div>
                 </div>
             );
@@ -677,7 +603,6 @@
                 };
                 window.addEventListener('hashchange', h); h(); return () => window.removeEventListener('hashchange', h);
             }, []);
-
             return (
                 <AuthProvider>
                     <SettingsProvider>
@@ -690,9 +615,9 @@
                                 {view === 'checkout' && <Checkout key="c"/>}
                                 {view === 'admin' && <Admin key="a"/>}
                                 {view === 'auth' && <Auth key="au"/>}
-                                {view === 'success' && <div key="s" className="h-screen flex items-center justify-center flex-col"><Icon name="CheckCircle" size={60} className="text-green-500 mb-4"/><h1 className="text-3xl font-bold">ORDER PLACED</h1><a href="#shop" className="underline mt-4 text-gray-500">Continue Shopping</a></div>}
-                                {view === 'about' && <div className="pt-32 text-center max-w-2xl mx-auto px-4"><h1 className="text-4xl font-bold mb-4">WHO WE ARE</h1><p className="text-gray-400">Luxury. Streets. Future. Born in 2025.</p></div>}
-                                {view === 'contact' && <div className="pt-32 text-center"><h1 className="text-4xl font-bold mb-4">CONTACT</h1><a href="mailto:support@streetology.com" className="text-brand-accent text-xl">support@streetology.com</a></div>}
+                                {view === 'success' && <div key="s" className="h-screen flex items-center justify-center flex-col"><Icon name="CheckCircle" size={60} className="text-green-500 mb-4"/><h1 className="text-3xl font-bold">ORDER PLACED</h1><a href="#shop" className="underline mt-4 text-gray-500 tracking-widest text-xs">CONTINUE SHOPPING</a></div>}
+                                {view === 'about' && <div className="pt-32 text-center max-w-2xl mx-auto px-4"><h1 className="text-4xl font-bold mb-4 italic">STREETOLOGY</h1><p className="text-gray-400 tracking-widest text-sm leading-relaxed">Luxury. Streets. Future. Born in 2025.</p></div>}
+                                {view === 'contact' && <div className="pt-32 text-center"><h1 className="text-4xl font-bold mb-4">CONTACT</h1><a href="mailto:support@streetology.com" className="text-brand-accent text-xl font-mono">support@streetology.com</a></div>}
                             </AnimatePresence>
                             <CartSidebar/>
                         </CartProvider>
