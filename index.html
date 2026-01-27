@@ -59,7 +59,7 @@
         * { -webkit-tap-highlight-color: transparent; }
     </style>
 
-    <!-- FIREBASE & CACHING LOGIC -->
+    <!-- FIREBASE & CACHING LOGIC (FIXED FOR LOGIN) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, push, set, get, remove, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -122,21 +122,54 @@
                 return s.exists() ? Object.entries(s.val()).map(([k, v]) => ({...v, dbKey: k})).reverse() : [];
             },
             async updateOrderStatus(k, s) { await update(ref(db, `orders/${k}`), { status: s }); },
+            
+            // --- FIXED LOGIN LOGIC ---
             async login(ph, pw) {
-                if (ph === 'samimalik67@gmail.com' && pw === 'samimalik@admin') return { role: 'admin', name: 'Sami Malik' };
-                const s = await get(ref(db, 'users'));
-                if (s.exists()) {
-                    const u = Object.values(s.val()).find(x => x.phone === ph && x.password === pw);
-                    if (u) return u;
+                // Remove accidental spaces
+                const cleanPh = ph.trim();
+                const cleanPw = pw.trim();
+
+                // Admin Hardcoded Check
+                if (cleanPh === 'samimalik67@gmail.com' && cleanPw === 'samimalik@admin') {
+                    return { role: 'admin', name: 'Sami Malik', _id: 'admin_01' };
+                }
+
+                // Check Database Users
+                try {
+                    const s = await get(ref(db, 'users'));
+                    if (s.exists()) {
+                        const usersObj = s.val();
+                        // Find user by phone and password
+                        const foundKey = Object.keys(usersObj).find(key => {
+                            const u = usersObj[key];
+                            return u.phone == cleanPh && u.password == cleanPw;
+                        });
+
+                        if (foundKey) {
+                            return { ...usersObj[foundKey], _id: foundKey };
+                        }
+                    }
+                } catch(e) {
+                    console.error("DB Error", e);
+                    throw "Database Connection Error. Check Rules.";
                 }
                 throw "Invalid Credentials";
             },
+
             async register(n, ph, pw) {
+                const cleanPh = ph.trim();
+                const cleanPw = pw.trim();
+                
                 const s = await get(ref(db, 'users'));
-                if (s.exists() && Object.values(s.val()).find(u => u.phone === ph)) throw "Phone Registered";
+                if (s.exists()) {
+                    const exists = Object.values(s.val()).find(u => u.phone == cleanPh);
+                    if (exists) throw "Phone Number Already Registered";
+                }
+                
                 const r = push(ref(db, 'users'));
-                const u = { name: n, phone: ph, password: pw, role: 'user' };
-                await set(r, u); return u;
+                const u = { name: n, phone: cleanPh, password: cleanPw, role: 'user' };
+                await set(r, u); 
+                return { ...u, _id: r.key };
             }
         };
         window.dispatchEvent(new Event('db-ready'));
