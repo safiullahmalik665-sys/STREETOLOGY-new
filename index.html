@@ -41,6 +41,8 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, push, set, get, remove, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        // IMPORTING FIREBASE AUTH
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAPzDm1QY2Ag4J_Dw-EJXQiNdjtcRSVB6U",
@@ -54,6 +56,7 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
+        const auth = getAuth(app); // INITIALIZING AUTH
 
         window.DB = {
             async getSettings() {
@@ -84,24 +87,46 @@
             async getUserOrders(phone) {
                 const s = await get(ref(db, 'orders'));
                 if(!s.exists()) return [];
+                // Filtering orders based on shipping phone/email
                 return Object.values(s.val()).filter(o => o.shipping.phone === phone).reverse();
             },
             async updateOrderStatus(k, s) { await update(ref(db, `orders/${k}`), { status: s }); },
-            async login(ph, pw) {
-                if (ph === 'samimalik67@gmail.com' && pw === 'samimalik@admin') return { role: 'admin', name: 'Sami Malik', phone: ph };
-                const s = await get(ref(db, 'users'));
-                if (s.exists()) {
-                    const u = Object.values(s.val()).find(x => x.phone === ph && x.password === pw);
-                    if (u) return u;
+            
+            // UPDATED LOGIN WITH FIREBASE AUTH
+            async login(email, pw) {
+                try {
+                    const userCredential = await signInWithEmailAndPassword(auth, email, pw);
+                    const user = userCredential.user;
+                    
+                    // Admin Check (Simple logic for demonstration)
+                    if(email === 'samimalik67@gmail.com') {
+                        return { role: 'admin', name: 'Sami Malik', phone: email, _id: user.uid };
+                    }
+                    
+                    // Retrieve extra user info if exists
+                    const snap = await get(ref(db, 'users/' + user.uid));
+                    const userData = snap.exists() ? snap.val() : {};
+                    
+                    return { role: 'user', name: userData.name || 'User', phone: email, _id: user.uid };
+                } catch(error) {
+                    throw "Login Failed: " + error.message;
                 }
-                throw "Invalid Credentials";
             },
-            async register(n, ph, pw) {
-                const s = await get(ref(db, 'users'));
-                if (s.exists() && Object.values(s.val()).find(u => u.phone === ph)) throw "Phone Registered";
-                const r = push(ref(db, 'users'));
-                const u = { name: n, phone: ph, password: pw, role: 'user', _id: r.key };
-                await set(r, u); return u;
+
+            // UPDATED REGISTER WITH FIREBASE AUTH
+            async register(n, email, pw) {
+                try {
+                    const userCredential = await createUserWithEmailAndPassword(auth, email, pw);
+                    const user = userCredential.user;
+                    
+                    // Save user profile to Realtime DB
+                    const userData = { name: n, phone: email, role: 'user', _id: user.uid };
+                    await set(ref(db, 'users/' + user.uid), userData);
+                    
+                    return userData;
+                } catch (error) {
+                    throw "Registration Failed: " + error.message;
+                }
             }
         };
         window.dispatchEvent(new Event('db-ready'));
@@ -202,7 +227,7 @@
                                 <div className="h-12 w-1 bg-gray-800/50 rounded-full"></div>
                             </motion.div>
 
-                            {/* UPDATED TEXT */}
+                            {/* TEXT IN ANIMATION */}
                             <motion.div 
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
