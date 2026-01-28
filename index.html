@@ -173,12 +173,23 @@
             return <CartCtx.Provider value={{cart, open, setOpen, add, remove, total, clear: ()=>setCart([])}}>{children}</CartCtx.Provider>;
         };
 
-        // MODIFIED SETTINGS PROVIDER FOR INSTANT LOADING CHECK
+        // OPTIMIZED SETTINGS PROVIDER (With Caching for Instant Load)
         const SettingsProvider = ({children}) => {
-            const [settings, setSettings] = useState(null); // Initial state is null (loading)
+            // Initialize from LocalStorage if available (INSTANT LOAD)
+            const [settings, setSettings] = useState(() => {
+                const cached = localStorage.getItem('street_settings');
+                return cached ? JSON.parse(cached) : null;
+            });
             
             useEffect(() => {
-                const f = async () => { if(window.DB) setSettings(await window.DB.getSettings()); };
+                const f = async () => { 
+                    if(window.DB) {
+                        const s = await window.DB.getSettings();
+                        setSettings(s);
+                        // Save latest to cache
+                        localStorage.setItem('street_settings', JSON.stringify(s));
+                    }
+                };
                 f(); 
                 window.addEventListener('db-ready', f); 
                 return ()=>window.removeEventListener('db-ready', f);
@@ -186,12 +197,15 @@
 
             return <SettingsCtx.Provider value={{
                 settings: settings || { locked: false, dropTitle: "", dropImage: "" }, 
-                isLoading: settings === null, // New Flag
-                updateSettings: (s) => { setSettings(s); window.DB.updateSettings(s); }
+                isLoading: settings === null, 
+                updateSettings: (s) => { 
+                    setSettings(s); 
+                    localStorage.setItem('street_settings', JSON.stringify(s));
+                    window.DB.updateSettings(s); 
+                }
             }}>{children}</SettingsCtx.Provider>
         };
 
-        // MODIFIED DOOR OVERLAY WITH PREMIUM FONT
         const DoorOverlay = ({ show }) => {
             return (
                 <AnimatePresence>
@@ -204,7 +218,6 @@
                                 <div className="h-12 w-1 bg-gray-800/50 rounded-full"></div>
                             </motion.div>
                             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ delay: 0.3, duration: 0.3 }} className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                {/* PREMIUM FONT CHANGE HERE */}
                                 <span className="text-white/90 font-serif tracking-[0.2em] md:tracking-[0.4em] text-sm md:text-xl text-center px-4 uppercase font-medium">ENTER THE WORLD OF STREETOLOGY</span>
                             </motion.div>
                         </div>
@@ -260,7 +273,8 @@
         const Hero = ({ onEnter }) => {
             const { settings, isLoading } = useContext(SettingsCtx);
             
-            // FIX: If loading, show black screen. If locked, show locked screen immediately.
+            // If still loading (first visit ever) show black. 
+            // If cached (return visit), shows settings immediately.
             if (isLoading) return <div className="h-screen bg-black w-full flex items-center justify-center"></div>;
 
             if(settings.locked) {
