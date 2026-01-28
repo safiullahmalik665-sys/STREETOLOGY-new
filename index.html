@@ -174,7 +174,7 @@
             return <SettingsCtx.Provider value={{settings, updateSettings: (s) => { setSettings(s); window.DB.updateSettings(s); }}}>{children}</SettingsCtx.Provider>
         };
 
-        // NEW COMPONENT: Door Transition Animation
+        // DOOR TRANSITION ANIMATION
         const DoorOverlay = ({ show }) => {
             return (
                 <AnimatePresence>
@@ -202,7 +202,7 @@
                                 <div className="h-12 w-1 bg-gray-800/50 rounded-full"></div>
                             </motion.div>
 
-                            {/* Center Logo/Loading Indicator (Optional) */}
+                            {/* UPDATED TEXT */}
                             <motion.div 
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
@@ -210,7 +210,7 @@
                                 transition={{ delay: 0.3, duration: 0.3 }}
                                 className="absolute inset-0 flex items-center justify-center pointer-events-none"
                             >
-                                <span className="text-white font-black tracking-[0.5em] text-xs animate-pulse">LOADING</span>
+                                <span className="text-white font-black tracking-[0.2em] md:tracking-[0.5em] text-sm md:text-xl text-center px-4 animate-pulse italic uppercase">ENTER THE WORLD OF STREETOLOGY</span>
                             </motion.div>
                         </div>
                     )}
