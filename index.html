@@ -19,6 +19,9 @@
                 extend: {
                     colors: {
                         brand: { black: '#0a0a0a', dark: '#111', gray: '#222', light: '#ededed', accent: '#FF3333' }
+                    },
+                    fontFamily: {
+                        serif: ['"Didot"', '"Playfair Display"', 'Times New Roman', 'serif']
                     }
                 }
             }
@@ -32,15 +35,14 @@
         input, select, textarea { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; }
         input:focus { border-color: #FF3333; outline: none; }
         * { -webkit-tap-highlight-color: transparent; }
-        /* Hide scrollbar for Chrome, Safari and Opera */
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        /* Hide scrollbar for IE, Edge and Firefox */
         .no-scrollbar { -ms-overflow-style: none;  scrollbar-width: none; }
     </style>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, push, set, get, remove, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAPzDm1QY2Ag4J_Dw-EJXQiNdjtcRSVB6U",
@@ -54,6 +56,7 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
+        const auth = getAuth(app);
 
         window.DB = {
             async getSettings() {
@@ -87,21 +90,26 @@
                 return Object.values(s.val()).filter(o => o.shipping.phone === phone).reverse();
             },
             async updateOrderStatus(k, s) { await update(ref(db, `orders/${k}`), { status: s }); },
-            async login(ph, pw) {
-                if (ph === 'samimalik67@gmail.com' && pw === 'samimalik@admin') return { role: 'admin', name: 'Sami Malik', phone: ph };
-                const s = await get(ref(db, 'users'));
-                if (s.exists()) {
-                    const u = Object.values(s.val()).find(x => x.phone === ph && x.password === pw);
-                    if (u) return u;
-                }
-                throw "Invalid Credentials";
+            
+            async login(email, pw) {
+                try {
+                    const userCredential = await signInWithEmailAndPassword(auth, email, pw);
+                    const user = userCredential.user;
+                    if(email === 'samimalik67@gmail.com') return { role: 'admin', name: 'Sami Malik', phone: email, _id: user.uid };
+                    const snap = await get(ref(db, 'users/' + user.uid));
+                    const userData = snap.exists() ? snap.val() : {};
+                    return { role: 'user', name: userData.name || 'User', phone: email, _id: user.uid };
+                } catch(error) { throw "Login Failed: " + error.message; }
             },
-            async register(n, ph, pw) {
-                const s = await get(ref(db, 'users'));
-                if (s.exists() && Object.values(s.val()).find(u => u.phone === ph)) throw "Phone Registered";
-                const r = push(ref(db, 'users'));
-                const u = { name: n, phone: ph, password: pw, role: 'user', _id: r.key };
-                await set(r, u); return u;
+
+            async register(n, email, pw) {
+                try {
+                    const userCredential = await createUserWithEmailAndPassword(auth, email, pw);
+                    const user = userCredential.user;
+                    const userData = { name: n, phone: email, role: 'user', _id: user.uid };
+                    await set(ref(db, 'users/' + user.uid), userData);
+                    return userData;
+                } catch (error) { throw "Registration Failed: " + error.message; }
             }
         };
         window.dispatchEvent(new Event('db-ready'));
@@ -165,52 +173,39 @@
             return <CartCtx.Provider value={{cart, open, setOpen, add, remove, total, clear: ()=>setCart([])}}>{children}</CartCtx.Provider>;
         };
 
+        // MODIFIED SETTINGS PROVIDER FOR INSTANT LOADING CHECK
         const SettingsProvider = ({children}) => {
-            const [settings, setSettings] = useState({locked: false, dropTitle: "", dropImage: ""});
+            const [settings, setSettings] = useState(null); // Initial state is null (loading)
+            
             useEffect(() => {
                 const f = async () => { if(window.DB) setSettings(await window.DB.getSettings()); };
-                f(); window.addEventListener('db-ready', f); return ()=>window.removeEventListener('db-ready', f);
+                f(); 
+                window.addEventListener('db-ready', f); 
+                return ()=>window.removeEventListener('db-ready', f);
             }, []);
-            return <SettingsCtx.Provider value={{settings, updateSettings: (s) => { setSettings(s); window.DB.updateSettings(s); }}}>{children}</SettingsCtx.Provider>
+
+            return <SettingsCtx.Provider value={{
+                settings: settings || { locked: false, dropTitle: "", dropImage: "" }, 
+                isLoading: settings === null, // New Flag
+                updateSettings: (s) => { setSettings(s); window.DB.updateSettings(s); }
+            }}>{children}</SettingsCtx.Provider>
         };
 
-        // DOOR TRANSITION ANIMATION
+        // MODIFIED DOOR OVERLAY WITH PREMIUM FONT
         const DoorOverlay = ({ show }) => {
             return (
                 <AnimatePresence>
                     {show && (
                         <div className="fixed inset-0 z-[100] flex pointer-events-none">
-                            {/* Left Door */}
-                            <motion.div
-                                initial={{ x: "-100%" }}
-                                animate={{ x: 0 }}
-                                exit={{ x: "-100%" }}
-                                transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-                                className="w-1/2 h-full bg-[#0a0a0a] border-r border-gray-800 flex items-center justify-end pr-4"
-                            >
+                            <motion.div initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }} className="w-1/2 h-full bg-[#0a0a0a] border-r border-gray-800 flex items-center justify-end pr-4">
                                 <div className="h-12 w-1 bg-gray-800/50 rounded-full"></div>
                             </motion.div>
-                            
-                            {/* Right Door */}
-                            <motion.div
-                                initial={{ x: "100%" }}
-                                animate={{ x: 0 }}
-                                exit={{ x: "100%" }}
-                                transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-                                className="w-1/2 h-full bg-[#0a0a0a] border-l border-gray-800 flex items-center justify-start pl-4"
-                            >
+                            <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }} className="w-1/2 h-full bg-[#0a0a0a] border-l border-gray-800 flex items-center justify-start pl-4">
                                 <div className="h-12 w-1 bg-gray-800/50 rounded-full"></div>
                             </motion.div>
-
-                            {/* UPDATED TEXT */}
-                            <motion.div 
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ delay: 0.3, duration: 0.3 }}
-                                className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                            >
-                                <span className="text-white font-black tracking-[0.2em] md:tracking-[0.5em] text-sm md:text-xl text-center px-4 animate-pulse italic uppercase">ENTER THE WORLD OF STREETOLOGY</span>
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ delay: 0.3, duration: 0.3 }} className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                {/* PREMIUM FONT CHANGE HERE */}
+                                <span className="text-white/90 font-serif tracking-[0.2em] md:tracking-[0.4em] text-sm md:text-xl text-center px-4 uppercase font-medium">ENTER THE WORLD OF STREETOLOGY</span>
                             </motion.div>
                         </div>
                     )}
@@ -263,7 +258,11 @@
         };
 
         const Hero = ({ onEnter }) => {
-            const { settings } = useContext(SettingsCtx);
+            const { settings, isLoading } = useContext(SettingsCtx);
+            
+            // FIX: If loading, show black screen. If locked, show locked screen immediately.
+            if (isLoading) return <div className="h-screen bg-black w-full flex items-center justify-center"></div>;
+
             if(settings.locked) {
                 return (
                     <div className="h-screen relative flex flex-col items-center justify-center bg-black overflow-hidden px-4 text-center">
