@@ -42,7 +42,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, push, set, get, remove, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // UPDATED FIREBASE CONFIGURATION
         const firebaseConfig = {
             apiKey: "AIzaSyAPzDm1QY2Ag4J_Dw-EJXQiNdjtcRSVB6U",
             authDomain: "streetology-56f7b.firebaseapp.com",
@@ -175,6 +174,50 @@
             return <SettingsCtx.Provider value={{settings, updateSettings: (s) => { setSettings(s); window.DB.updateSettings(s); }}}>{children}</SettingsCtx.Provider>
         };
 
+        // NEW COMPONENT: Door Transition Animation
+        const DoorOverlay = ({ show }) => {
+            return (
+                <AnimatePresence>
+                    {show && (
+                        <div className="fixed inset-0 z-[100] flex pointer-events-none">
+                            {/* Left Door */}
+                            <motion.div
+                                initial={{ x: "-100%" }}
+                                animate={{ x: 0 }}
+                                exit={{ x: "-100%" }}
+                                transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+                                className="w-1/2 h-full bg-[#0a0a0a] border-r border-gray-800 flex items-center justify-end pr-4"
+                            >
+                                <div className="h-12 w-1 bg-gray-800/50 rounded-full"></div>
+                            </motion.div>
+                            
+                            {/* Right Door */}
+                            <motion.div
+                                initial={{ x: "100%" }}
+                                animate={{ x: 0 }}
+                                exit={{ x: "100%" }}
+                                transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+                                className="w-1/2 h-full bg-[#0a0a0a] border-l border-gray-800 flex items-center justify-start pl-4"
+                            >
+                                <div className="h-12 w-1 bg-gray-800/50 rounded-full"></div>
+                            </motion.div>
+
+                            {/* Center Logo/Loading Indicator (Optional) */}
+                            <motion.div 
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ delay: 0.3, duration: 0.3 }}
+                                className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                            >
+                                <span className="text-white font-black tracking-[0.5em] text-xs animate-pulse">LOADING</span>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
+            );
+        };
+
         const Navbar = () => {
             const { cart, setOpen } = useContext(CartCtx);
             const { user, logout } = useContext(AuthCtx);
@@ -219,7 +262,7 @@
             );
         };
 
-        const Hero = () => {
+        const Hero = ({ onEnter }) => {
             const { settings } = useContext(SettingsCtx);
             if(settings.locked) {
                 return (
@@ -249,7 +292,7 @@
                     <div className="z-10 text-center px-4 w-full">
                         <motion.h1 initial={{y:50, opacity:0}} animate={{y:0, opacity:1}} className="text-5xl sm:text-6xl md:text-9xl font-bold text-white tracking-tighter leading-none mb-4">STREETOLOGY</motion.h1>
                         <p className="text-gray-400 tracking-[0.3em] md:tracking-[0.5em] font-mono mb-12 text-[10px] md:text-xs uppercase">Future Wear // Est. 2025</p>
-                        <button onClick={() => window.location.hash = '#shop'} className="bg-white text-black px-8 md:px-12 py-3 md:py-4 font-black tracking-widest hover:bg-brand-accent hover:text-white transition uppercase text-xs md:text-sm">Enter Store</button>
+                        <button onClick={onEnter} className="bg-white text-black px-8 md:px-12 py-3 md:py-4 font-black tracking-widest hover:bg-brand-accent hover:text-white transition uppercase text-xs md:text-sm">Enter Store</button>
                     </div>
                 </div>
             );
@@ -593,6 +636,8 @@
         const App = () => {
             const [view, setView] = useState('home');
             const [curr, setCurr] = useState(null);
+            const [entering, setEntering] = useState(false); // Controls door closing
+
             useEffect(() => {
                 const h = () => {
                     const hash = window.location.hash.slice(1) || 'home';
@@ -603,13 +648,30 @@
                 };
                 window.addEventListener('hashchange', h); h(); return () => window.removeEventListener('hashchange', h);
             }, []);
+
+            // Handle Door Transition
+            const handleEnterStore = () => {
+                setEntering(true); // 1. Doors Close (Slide In)
+                
+                // 2. Wait for doors to close (800ms match duration), then change view
+                setTimeout(() => {
+                    window.location.hash = '#shop';
+                    
+                    // 3. Briefly wait for new view to render behind doors, then Open (Slide Out)
+                    setTimeout(() => {
+                        setEntering(false); // Triggers exit animation
+                    }, 100); 
+                }, 1000);
+            };
+
             return (
                 <AuthProvider>
                     <SettingsProvider>
                         <CartProvider>
                             <Navbar/>
+                            <DoorOverlay show={entering} />
                             <AnimatePresence mode="wait">
-                                {view === 'home' && <Hero key="h"/>}
+                                {view === 'home' && <Hero key="h" onEnter={handleEnterStore}/>}
                                 {view === 'shop' && <Shop key="s" setCurr={setCurr}/>}
                                 {view === 'product' && <Product key="p" p={curr}/>}
                                 {view === 'checkout' && <Checkout key="c"/>}
