@@ -64,17 +64,21 @@
 
         window.DB = {
             async getSettings() {
-                const s = await get(ref(db, 'settings'));
-                return s.exists() ? s.val() : { locked: false, dropTitle: "MYSTERY DROP", dropImage: "" };
+                try {
+                    const s = await get(ref(db, 'settings'));
+                    return s.exists() ? s.val() : { locked: false, dropTitle: "MYSTERY DROP", dropImage: "" };
+                } catch(e) { return { locked: false, dropTitle: "MYSTERY DROP", dropImage: "" }; }
             },
             async updateSettings(settings) { await update(ref(db, 'settings'), settings); },
             async getProducts() {
-                const s = await get(ref(db, 'products'));
-                return s.exists() ? Object.entries(s.val()).map(([k, v]) => ({...v, _id: k})) : [];
+                try {
+                    const s = await get(ref(db, 'products'));
+                    return s.exists() ? Object.entries(s.val()).map(([k, v]) => ({...v, _id: k})) : [];
+                } catch(e) { return []; }
             },
             async createProduct(p) {
                 const r = push(ref(db, 'products'));
-                await set(r, {...p, _id: r.key, sizes: {S:true, M:true, L:true, XL:true}, stockQty: 100}); // Default stock
+                await set(r, {...p, _id: r.key, sizes: {S:true, M:true, L:true, XL:true}, stockQty: 100}); 
             },
             async updateProduct(id, data) {
                 await update(ref(db, `products/${id}`), data);
@@ -127,6 +131,7 @@
         const { useState, useEffect, useContext, createContext } = React;
         const { motion, AnimatePresence } = window.Motion;
 
+        // ICONS
         const Icon = ({ name, size = 20, className, onClick }) => {
             const icons = {
                 ShoppingBag: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>,
@@ -178,11 +183,13 @@
             return <CartCtx.Provider value={{cart, open, setOpen, add, remove, total, clear: ()=>setCart([])}}>{children}</CartCtx.Provider>;
         };
 
+        // FIXED SETTINGS PROVIDER: DEFAULTS TO { locked: false } TO PREVENT BLACK SCREEN
         const SettingsProvider = ({children}) => {
             const [settings, setSettings] = useState(() => {
                 const cached = localStorage.getItem('street_settings');
-                return cached ? JSON.parse(cached) : null;
+                return cached ? JSON.parse(cached) : { locked: false, dropTitle: "MYSTERY DROP", dropImage: "" };
             });
+            
             useEffect(() => {
                 const f = async () => { 
                     if(window.DB) {
@@ -193,9 +200,9 @@
                 };
                 f(); window.addEventListener('db-ready', f); return ()=>window.removeEventListener('db-ready', f);
             }, []);
+
             return <SettingsCtx.Provider value={{
-                settings: settings || { locked: false, dropTitle: "", dropImage: "" }, 
-                isLoading: settings === null, 
+                settings: settings, 
                 updateSettings: (s) => { setSettings(s); localStorage.setItem('street_settings', JSON.stringify(s)); window.DB.updateSettings(s); }
             }}>{children}</SettingsCtx.Provider>
         };
@@ -300,8 +307,8 @@
         };
 
         const Hero = ({ onEnter }) => {
-            const { settings, isLoading } = useContext(SettingsCtx);
-            if (isLoading) return <div className="h-screen bg-black w-full flex items-center justify-center"></div>;
+            const { settings } = useContext(SettingsCtx);
+            // REMOVED: if (isLoading) return <div ...> (This was causing the black screen)
 
             if(settings.locked) {
                 return (
@@ -366,8 +373,6 @@
             const [size, setSize] = useState('');
             const [idx, setIdx] = useState(0);
             if(!p) return null;
-            
-            // Handle legacy product data that doesn't have 'sizes' object
             const sizeStock = p.sizes || {S:true, M:true, L:true, XL:true};
 
             return (
@@ -468,7 +473,6 @@
             );
         };
 
-        // --- NEW COMPONENT: Stock Manager Modal ---
         const StockManager = ({ product, onClose, onSave }) => {
             const [stock, setStock] = useState(product.stockQty || 0);
             const [sizes, setSizes] = useState(product.sizes || {S:true, M:true, L:true, XL:true});
@@ -516,7 +520,7 @@
             const [data, setData] = useState({p:[], o:[]});
             const [form, setForm] = useState({name:'', price:'', cat:'Hoodies', desc:'', imgs:[]});
             const [dropForm, setDropForm] = useState({ dropTitle: settings.dropTitle, dropImage: settings.dropImage });
-            const [editingStock, setEditingStock] = useState(null); // State for modal
+            const [editingStock, setEditingStock] = useState(null);
 
             if(!user || user.role !== 'admin') return <Auth />;
             
