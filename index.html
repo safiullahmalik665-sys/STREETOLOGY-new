@@ -44,17 +44,15 @@
         import { getDatabase, ref, push, set, get, remove, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-        // UPDATED FIREBASE CONFIGURATION (Project: streetology-60324)
+        // UPDATED CONFIG WITH ASIA-SOUTHEAST1 DATABASE URL
         const firebaseConfig = {
             apiKey: "AIzaSyADMVJ_xjZsIrdoGTqb8TgkzHJhvCadRSI",
             authDomain: "streetology-60324.firebaseapp.com",
+            databaseURL: "https://streetology-60324-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "streetology-60324",
             storageBucket: "streetology-60324.firebasestorage.app",
             messagingSenderId: "304726277276",
-            appId: "1:304726277276:web:08222d18c2f8eee73ac159",
-            // Added default databaseURL based on project ID. 
-            // If your DB is in a specific region (e.g. Asia), replace this URL from your Firebase Console.
-            databaseURL: "https://streetology-60324-default-rtdb.firebaseio.com"
+            appId: "1:304726277276:web:08222d18c2f8eee73ac159"
         };
 
         const app = initializeApp(firebaseConfig);
