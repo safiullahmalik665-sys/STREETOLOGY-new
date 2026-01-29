@@ -86,7 +86,7 @@
             },
             async deleteProduct(id) { await remove(ref(db, `products/${id}`)); },
             
-            // --- NEW VOUCHER FUNCTIONS ---
+            // Vouchers
             async getVouchers() {
                 try {
                     const s = await get(ref(db, 'vouchers'));
@@ -98,7 +98,6 @@
                 await set(r, {...v, _id: r.key});
             },
             async deleteVoucher(id) { await remove(ref(db, `vouchers/${id}`)); },
-            // -----------------------------
 
             async createOrder(o) {
                 const r = push(ref(db, 'orders'));
@@ -114,16 +113,32 @@
                 return Object.values(s.val()).filter(o => o.shipping.phone === phone).reverse();
             },
             async updateOrderStatus(k, s) { await update(ref(db, `orders/${k}`), { status: s }); },
+            
             async login(email, pw) {
                 try {
                     const userCredential = await signInWithEmailAndPassword(auth, email, pw);
                     const user = userCredential.user;
-                    if(email === 'samimalik67@gmail.com') return { role: 'admin', name: 'Sami Malik', phone: email, _id: user.uid };
-                    const snap = await get(ref(db, 'users/' + user.uid));
-                    const userData = snap.exists() ? snap.val() : {};
-                    return { role: 'user', name: userData.name || 'User', phone: email, _id: user.uid };
+                    
+                    if(email === 'samimalik67@gmail.com') {
+                        return { role: 'admin', name: 'Sami Malik', phone: email, _id: user.uid };
+                    }
+                    
+                    // Safely fetch user data, fallback if missing
+                    let userData = {};
+                    try {
+                        const snap = await get(ref(db, 'users/' + user.uid));
+                        if(snap.exists()) userData = snap.val();
+                    } catch(err) { console.log("DB Fetch Error", err); }
+
+                    return { 
+                        role: 'user', 
+                        name: userData.name || email.split('@')[0], 
+                        phone: email, 
+                        _id: user.uid 
+                    };
                 } catch(error) { throw "Login Failed: " + error.message; }
             },
+            
             async register(n, email, pw) {
                 try {
                     const userCredential = await createUserWithEmailAndPassword(auth, email, pw);
@@ -169,8 +184,10 @@
 
         const AuthProvider = ({children}) => {
             const [user, setUser] = useState(() => {
-                const saved = localStorage.getItem('street_user');
-                return saved && saved !== "undefined" ? JSON.parse(saved) : null;
+                try {
+                    const saved = localStorage.getItem('street_user');
+                    return saved && saved !== "undefined" ? JSON.parse(saved) : null;
+                } catch(e) { return null; }
             });
             const login = async (id, pw) => {
                 try { const u = await window.DB.login(id, pw); setUser(u); localStorage.setItem('street_user', JSON.stringify(u)); return u; } 
@@ -187,7 +204,7 @@
         const CartProvider = ({children}) => {
             const [cart, setCart] = useState([]);
             const [open, setOpen] = useState(false);
-            const [voucher, setVoucher] = useState(null); // Applied voucher
+            const [voucher, setVoucher] = useState(null);
 
             const add = (p, s) => { setCart(prev => {
                 const ex = prev.find(i => i._id === p._id && i.size === s);
@@ -195,7 +212,6 @@
             }); setOpen(true); };
             
             const remove = (id, s) => setCart(p => p.filter(i => !(i._id === id && i.size === s)));
-            
             const subtotal = cart.reduce((a, b) => a + (b.price * b.qty), 0);
             
             const calculateDiscount = () => {
@@ -212,10 +228,7 @@
                 if(window.DB) {
                     const vouchers = await window.DB.getVouchers();
                     const v = vouchers.find(x => x.code === code);
-                    if(v) {
-                        setVoucher(v);
-                        return {success: true, msg: "Voucher Applied!"};
-                    }
+                    if(v) { setVoucher(v); return {success: true, msg: "Voucher Applied!"}; }
                 }
                 setVoucher(null);
                 return {success: false, msg: "Invalid Code"};
@@ -224,10 +237,13 @@
             return <CartCtx.Provider value={{cart, open, setOpen, add, remove, total, subtotal, discount, voucher, applyCode, clear: ()=>{setCart([]); setVoucher(null);}}}>{children}</CartCtx.Provider>;
         };
 
+        // SAFETY: Add Try-Catch to LocalStorage to prevent White/Black Screen crash
         const SettingsProvider = ({children}) => {
             const [settings, setSettings] = useState(() => {
-                const cached = localStorage.getItem('street_settings');
-                return cached ? JSON.parse(cached) : { locked: false, dropTitle: "MYSTERY DROP", dropImage: "" };
+                try {
+                    const cached = localStorage.getItem('street_settings');
+                    return cached ? JSON.parse(cached) : { locked: false, dropTitle: "MYSTERY DROP", dropImage: "" };
+                } catch(e) { return { locked: false, dropTitle: "MYSTERY DROP", dropImage: "" }; }
             });
             useEffect(() => {
                 const f = async () => { 
@@ -247,8 +263,10 @@
 
         const ProductProvider = ({children}) => {
             const [products, setProducts] = useState(() => {
-                const cached = localStorage.getItem('street_products');
-                return cached ? JSON.parse(cached) : [];
+                try {
+                    const cached = localStorage.getItem('street_products');
+                    return cached ? JSON.parse(cached) : [];
+                } catch(e) { return []; }
             });
             useEffect(() => {
                 const f = async () => {
@@ -344,6 +362,8 @@
 
         const Hero = ({ onEnter }) => {
             const { settings } = useContext(SettingsCtx);
+            // REMOVED ALL BLOCKING LOADING STATES
+
             if(settings.locked) {
                 return (
                     <div className="h-screen relative flex flex-col items-center justify-center bg-black overflow-hidden px-4 text-center">
@@ -359,7 +379,7 @@
                             <h1 className="text-3xl sm:text-4xl md:text-7xl font-black text-white leading-none mb-6 uppercase tracking-tighter break-words">{settings.dropTitle || "RESTRICTED ACCESS"}</h1>
                             <div className="flex flex-col items-center gap-4">
                                 <span className="bg-white text-black px-8 py-2 font-black tracking-widest text-[10px]">LOCKED</span>
-                                <a href="#auth" className="text-[10px] text-gray-600 hover:text-white mt-4 flex items-center gap-2 uppercase font-bold tracking-widest"><Icon name="User" size={12}/> Admin Login</a>
+                                {/* REMOVED ADMIN LINK HERE */}
                             </div>
                         </div>
                     </div>
@@ -533,9 +553,9 @@
             const { settings, updateSettings } = useContext(SettingsCtx);
             const { refreshProducts } = useContext(ProductCtx);
             const [tab, setTab] = useState('orders');
-            const [data, setData] = useState({p:[], o:[], v:[]}); // v for vouchers
+            const [data, setData] = useState({p:[], o:[], v:[]}); 
             const [form, setForm] = useState({name:'', price:'', cat:'Hoodies', desc:'', imgs:[]});
-            const [vForm, setVForm] = useState({code:'', type:'fixed', value:''}); // Voucher Form
+            const [vForm, setVForm] = useState({code:'', type:'fixed', value:''}); 
             const [dropForm, setDropForm] = useState({ dropTitle: settings.dropTitle, dropImage: settings.dropImage });
             const [editingStock, setEditingStock] = useState(null);
 
