@@ -315,13 +315,22 @@
             const [list, setList] = useState([]);
             const [loading, setLoading] = useState(true);
             useEffect(() => {
+                window.scrollTo(0, 0); // Force top scroll on mount for mobile
                 const f = async () => { if (window.DB) { setList(await window.DB.getProducts()); setLoading(false); } };
                 f(); if(!window.DB) window.addEventListener('db-ready', f);
                 return ()=>window.removeEventListener('db-ready', f);
             }, []);
             return (
-                <div className="pt-20 md:pt-24 px-4 md:px-12 pb-20 min-h-screen">
+                // UPDATED: Increased top padding for mobile (pt-28) to avoid nav overlap
+                <div className="pt-28 md:pt-24 px-4 md:px-12 pb-20 min-h-screen relative z-10">
                     <h2 className="text-3xl md:text-4xl font-bold tracking-tighter mb-8 md:mb-12 border-b border-gray-800 pb-4 italic uppercase">Collection</h2>
+                    
+                    {loading && list.length === 0 && (
+                        <div className="text-center py-20">
+                            <div className="text-brand-accent animate-pulse font-mono tracking-widest text-xs">LOADING COLLECTION...</div>
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                         {list.map(p => (
                             <div key={p._id} onClick={()=>{if(p.status!=='sold_out'){setCurr(p); window.location.hash='#product/'+p._id}}} className={`glass-panel p-3 group cursor-pointer ${p.status==='sold_out'?'opacity-50':''}`}>
@@ -344,9 +353,10 @@
             const { add } = useContext(CartCtx);
             const [size, setSize] = useState('');
             const [idx, setIdx] = useState(0);
+            useEffect(() => { window.scrollTo(0, 0); }, []);
             if(!p) return null;
             return (
-                <div className="pt-20 md:pt-24 px-4 md:px-12 pb-20 min-h-screen">
+                <div className="pt-28 md:pt-24 px-4 md:px-12 pb-20 min-h-screen">
                     <button onClick={()=>window.history.back()} className="flex items-center gap-2 text-xs font-bold text-gray-500 mb-6 md:mb-8 uppercase tracking-widest"><Icon name="ArrowLeft" size={14}/> Back</button>
                     <div className="grid md:grid-cols-2 gap-8 md:gap-12">
                         <div className="space-y-4">
