@@ -123,15 +123,20 @@
                         return { role: 'admin', name: 'Sami Malik', phone: email, _id: user.uid };
                     }
                     
-                    // Robust fallback if DB read fails
-                    let userData = { name: email.split('@')[0], phone: email, role: 'user', _id: user.uid };
+                    // Safely fetch user data, fallback if missing
+                    let userData = {};
                     try {
                         const snap = await get(ref(db, 'users/' + user.uid));
-                        if(snap.exists()) userData = { ...userData, ...snap.val() };
-                    } catch(err) { console.log("DB Read Error, using fallback"); }
+                        if(snap.exists()) userData = snap.val();
+                    } catch(err) { console.log("DB Fetch Error", err); }
 
-                    return userData;
-                } catch(error) { throw error.message; }
+                    return { 
+                        role: 'user', 
+                        name: userData.name || email.split('@')[0], 
+                        phone: email, 
+                        _id: user.uid 
+                    };
+                } catch(error) { throw "Login Failed: " + error.message; }
             },
             
             async register(n, email, pw) {
@@ -139,10 +144,9 @@
                     const userCredential = await createUserWithEmailAndPassword(auth, email, pw);
                     const user = userCredential.user;
                     const userData = { name: n, phone: email, role: 'user', _id: user.uid };
-                    // Try to save to DB, but don't fail registration if DB write fails
-                    try { await set(ref(db, 'users/' + user.uid), userData); } catch(e) {}
+                    await set(ref(db, 'users/' + user.uid), userData);
                     return userData;
-                } catch (error) { throw error.message; }
+                } catch (error) { throw "Registration Failed: " + error.message; }
             }
         };
         window.dispatchEvent(new Event('db-ready'));
@@ -233,7 +237,7 @@
             return <CartCtx.Provider value={{cart, open, setOpen, add, remove, total, subtotal, discount, voucher, applyCode, clear: ()=>{setCart([]); setVoucher(null);}}}>{children}</CartCtx.Provider>;
         };
 
-        // FIXED SETTINGS PROVIDER: DEFAULTS TO { locked: false } TO PREVENT BLACK SCREEN
+        // SAFETY: Add Try-Catch to LocalStorage to prevent White/Black Screen crash
         const SettingsProvider = ({children}) => {
             const [settings, setSettings] = useState(() => {
                 try {
@@ -375,7 +379,7 @@
                             <h1 className="text-3xl sm:text-4xl md:text-7xl font-black text-white leading-none mb-6 uppercase tracking-tighter break-words">{settings.dropTitle || "RESTRICTED ACCESS"}</h1>
                             <div className="flex flex-col items-center gap-4">
                                 <span className="bg-white text-black px-8 py-2 font-black tracking-widest text-[10px]">LOCKED</span>
-                                <a href="#auth" className="text-[10px] text-gray-600 hover:text-white mt-4 flex items-center gap-2 uppercase font-bold tracking-widest"><Icon name="User" size={12}/> Admin Login</a>
+                                {/* REMOVED ADMIN LINK HERE */}
                             </div>
                         </div>
                     </div>
