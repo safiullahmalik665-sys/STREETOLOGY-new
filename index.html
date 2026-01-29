@@ -86,7 +86,7 @@
             },
             async deleteProduct(id) { await remove(ref(db, `products/${id}`)); },
             
-            // Vouchers
+            // Vouchers (Updated to support specific products)
             async getVouchers() {
                 try {
                     const s = await get(ref(db, 'vouchers'));
@@ -114,6 +114,7 @@
             },
             async updateOrderStatus(k, s) { await update(ref(db, `orders/${k}`), { status: s }); },
             
+            // FIXED LOGIN LOGIC
             async login(email, pw) {
                 try {
                     const userCredential = await signInWithEmailAndPassword(auth, email, pw);
@@ -123,20 +124,16 @@
                         return { role: 'admin', name: 'Sami Malik', phone: email, _id: user.uid };
                     }
                     
-                    // Safely fetch user data, fallback if missing
-                    let userData = {};
+                    // Fallback User Object (Prevents blocking if DB is slow)
+                    let userData = { name: email.split('@')[0], phone: email, role: 'user', _id: user.uid };
+                    
                     try {
                         const snap = await get(ref(db, 'users/' + user.uid));
-                        if(snap.exists()) userData = snap.val();
-                    } catch(err) { console.log("DB Fetch Error", err); }
+                        if(snap.exists()) userData = { ...userData, ...snap.val() };
+                    } catch(err) { console.log("DB Read Error, using fallback data"); }
 
-                    return { 
-                        role: 'user', 
-                        name: userData.name || email.split('@')[0], 
-                        phone: email, 
-                        _id: user.uid 
-                    };
-                } catch(error) { throw "Login Failed: " + error.message; }
+                    return userData;
+                } catch(error) { throw error.message; }
             },
             
             async register(n, email, pw) {
@@ -144,9 +141,9 @@
                     const userCredential = await createUserWithEmailAndPassword(auth, email, pw);
                     const user = userCredential.user;
                     const userData = { name: n, phone: email, role: 'user', _id: user.uid };
-                    await set(ref(db, 'users/' + user.uid), userData);
+                    try { await set(ref(db, 'users/' + user.uid), userData); } catch(e) {}
                     return userData;
-                } catch (error) { throw "Registration Failed: " + error.message; }
+                } catch (error) { throw error.message; }
             }
         };
         window.dispatchEvent(new Event('db-ready'));
@@ -214,10 +211,24 @@
             const remove = (id, s) => setCart(p => p.filter(i => !(i._id === id && i.size === s)));
             const subtotal = cart.reduce((a, b) => a + (b.price * b.qty), 0);
             
+            // UPDATED: Logic to calculate discount based on specific products
             const calculateDiscount = () => {
                 if (!voucher) return 0;
-                if (voucher.type === 'percent') return (subtotal * voucher.value) / 100;
-                return Math.min(voucher.value, subtotal);
+                
+                let applicableAmount = 0;
+
+                if (voucher.targetProductId && voucher.targetProductId !== 'all') {
+                    // Specific product discount
+                    const targetItems = cart.filter(i => i._id === voucher.targetProductId);
+                    if (targetItems.length === 0) return 0; // Item not present
+                    applicableAmount = targetItems.reduce((acc, item) => acc + (item.price * item.qty), 0);
+                } else {
+                    // Global discount
+                    applicableAmount = subtotal;
+                }
+
+                if (voucher.type === 'percent') return (applicableAmount * voucher.value) / 100;
+                return Math.min(voucher.value, applicableAmount);
             };
 
             const discount = calculateDiscount();
@@ -228,7 +239,21 @@
                 if(window.DB) {
                     const vouchers = await window.DB.getVouchers();
                     const v = vouchers.find(x => x.code === code);
-                    if(v) { setVoucher(v); return {success: true, msg: "Voucher Applied!"}; }
+                    if(v) { 
+                        // Check if specific product is in cart
+                        if(v.targetProductId && v.targetProductId !== 'all') {
+                            const exists = cart.some(item => item._id === v.targetProductId);
+                            if(!exists) {
+                                setVoucher(null);
+                                // Try to find product name for better error message
+                                const products = await window.DB.getProducts();
+                                const prodName = products.find(p => p._id === v.targetProductId)?.name || "a specific product";
+                                return {success: false, msg: `Code valid only for: ${prodName}`};
+                            }
+                        }
+                        setVoucher(v); 
+                        return {success: true, msg: "Voucher Applied!"}; 
+                    }
                 }
                 setVoucher(null);
                 return {success: false, msg: "Invalid Code"};
@@ -237,7 +262,6 @@
             return <CartCtx.Provider value={{cart, open, setOpen, add, remove, total, subtotal, discount, voucher, applyCode, clear: ()=>{setCart([]); setVoucher(null);}}}>{children}</CartCtx.Provider>;
         };
 
-        // SAFETY: Add Try-Catch to LocalStorage to prevent White/Black Screen crash
         const SettingsProvider = ({children}) => {
             const [settings, setSettings] = useState(() => {
                 try {
@@ -362,8 +386,7 @@
 
         const Hero = ({ onEnter }) => {
             const { settings } = useContext(SettingsCtx);
-            // REMOVED ALL BLOCKING LOADING STATES
-
+            
             if(settings.locked) {
                 return (
                     <div className="h-screen relative flex flex-col items-center justify-center bg-black overflow-hidden px-4 text-center">
@@ -379,7 +402,7 @@
                             <h1 className="text-3xl sm:text-4xl md:text-7xl font-black text-white leading-none mb-6 uppercase tracking-tighter break-words">{settings.dropTitle || "RESTRICTED ACCESS"}</h1>
                             <div className="flex flex-col items-center gap-4">
                                 <span className="bg-white text-black px-8 py-2 font-black tracking-widest text-[10px]">LOCKED</span>
-                                {/* REMOVED ADMIN LINK HERE */}
+                                <a href="#auth" className="text-[10px] text-gray-600 hover:text-white mt-4 flex items-center gap-2 uppercase font-bold tracking-widest"><Icon name="User" size={12}/> Admin Login</a>
                             </div>
                         </div>
                     </div>
@@ -555,7 +578,7 @@
             const [tab, setTab] = useState('orders');
             const [data, setData] = useState({p:[], o:[], v:[]}); 
             const [form, setForm] = useState({name:'', price:'', cat:'Hoodies', desc:'', imgs:[]});
-            const [vForm, setVForm] = useState({code:'', type:'fixed', value:''}); 
+            const [vForm, setVForm] = useState({code:'', type:'fixed', value:'', targetProductId: 'all'}); // ADDED targetProductId
             const [dropForm, setDropForm] = useState({ dropTitle: settings.dropTitle, dropImage: settings.dropImage });
             const [editingStock, setEditingStock] = useState(null);
 
@@ -575,10 +598,16 @@
                 setForm({name:'', price:'', cat:'Hoodies', desc:'', imgs:[]}); refresh(); alert('Published');
             };
 
+            // MODIFIED VOUCHER CREATION
             const addVoucher = async (e) => {
                 e.preventDefault();
-                await window.DB.createVoucher({code: vForm.code.toUpperCase(), type: vForm.type, value: Number(vForm.value)});
-                setVForm({code:'', type:'fixed', value:''}); refresh(); alert('Voucher Created');
+                await window.DB.createVoucher({
+                    code: vForm.code.toUpperCase(), 
+                    type: vForm.type, 
+                    value: Number(vForm.value),
+                    targetProductId: vForm.targetProductId // Saving the target ID
+                });
+                setVForm({code:'', type:'fixed', value:'', targetProductId: 'all'}); refresh(); alert('Voucher Created');
             };
 
             const handleStockSave = async (updatedData) => {
@@ -609,12 +638,32 @@
                                     <select value={vForm.type} onChange={e=>setVForm({...vForm,type:e.target.value})} className="w-full p-4 text-[10px] font-black uppercase"><option value="fixed">Flat Amount (₹)</option><option value="percent">Percentage (%)</option></select>
                                 </div>
                                 <input placeholder="Value (e.g., 500 or 10)" required type="number" value={vForm.value} onChange={e=>setVForm({...vForm,value:e.target.value})} className="w-full p-4 text-[10px] font-black"/>
+                                
+                                {/* NEW PRODUCT SELECTOR FOR VOUCHERS */}
+                                <div>
+                                    <label className="block text-[10px] font-bold text-gray-500 mb-2">APPLY TO:</label>
+                                    <select 
+                                        value={vForm.targetProductId} 
+                                        onChange={e=>setVForm({...vForm, targetProductId: e.target.value})} 
+                                        className="w-full p-4 text-[10px] font-black uppercase"
+                                    >
+                                        <option value="all">ENTIRE ORDER (Global)</option>
+                                        {data.p.map(p => (
+                                            <option key={p._id} value={p._id}>{p.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
                                 <button className="w-full bg-brand-accent text-black font-black py-4 uppercase text-[10px] tracking-widest">Create Voucher</button>
                             </form>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {data.v.map(v => (
                                     <div key={v._id} className="glass-panel p-4 flex justify-between items-center text-[10px] font-bold">
-                                        <div><span className="text-brand-accent text-lg">{v.code}</span><br/>{v.type === 'percent' ? `${v.value}% OFF` : `₹${v.value} OFF`}</div>
+                                        <div>
+                                            <span className="text-brand-accent text-lg">{v.code}</span><br/>
+                                            {v.type === 'percent' ? `${v.value}% OFF` : `₹${v.value} OFF`}<br/>
+                                            <span className="text-gray-500 italic">Target: {v.targetProductId === 'all' ? 'All Products' : 'Specific Product'}</span>
+                                        </div>
                                         <button onClick={async()=>{if(confirm('Delete?')){await window.DB.deleteVoucher(v._id); refresh()}}} className="text-red-500"><Icon name="Trash2" size={18}/></button>
                                     </div>
                                 ))}
