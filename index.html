@@ -37,6 +37,7 @@
         * { -webkit-tap-highlight-color: transparent; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none;  scrollbar-width: none; }
+        .strike-price { text-decoration: line-through; text-decoration-color: #FF3333; text-decoration-thickness: 2px; }
     </style>
 
     <script type="module">
@@ -44,7 +45,7 @@
         import { getDatabase, ref, push, set, get, remove, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-        // *** FIXED CONFIGURATION: Updated to Correct Project ID (60324) ***
+        // *** FIREBASE CONFIGURATION (Project 60324) ***
         const firebaseConfig = {
             apiKey: "AIzaSyADMVJ_xjZsIrdoGTqb8TgkzHJhvCadRSI",
             authDomain: "streetology-60324.firebaseapp.com",
@@ -71,14 +72,11 @@
                 try {
                     const s = await get(ref(db, 'products'));
                     return s.exists() ? Object.entries(s.val()).map(([k, v]) => ({...v, _id: k})) : [];
-                } catch(e) { console.error("Error fetching products:", e); return []; }
+                } catch(e) { console.error(e); return []; }
             },
             async createProduct(p) {
                 const r = push(ref(db, 'products'));
                 await set(r, {...p, _id: r.key});
-            },
-            async toggleStock(id, status) {
-                await update(ref(db, `products/${id}`), { status: status === 'sold_out' ? 'active' : 'sold_out' });
             },
             async deleteProduct(id) { await remove(ref(db, `products/${id}`)); },
             async createOrder(o) {
@@ -100,11 +98,12 @@
                 try {
                     const userCredential = await signInWithEmailAndPassword(auth, email, pw);
                     const user = userCredential.user;
+                    // Admin Hardcode
                     if(email === 'samimalik67@gmail.com') return { role: 'admin', name: 'Sami Malik', phone: email, _id: user.uid };
                     const snap = await get(ref(db, 'users/' + user.uid));
                     const userData = snap.exists() ? snap.val() : {};
                     return { role: 'user', name: userData.name || 'User', phone: email, _id: user.uid };
-                } catch(error) { throw "Login Failed: " + error.message; }
+                } catch(error) { throw error.message; }
             },
 
             async register(n, email, pw) {
@@ -114,7 +113,7 @@
                     const userData = { name: n, phone: email, role: 'user', _id: user.uid };
                     await set(ref(db, 'users/' + user.uid), userData);
                     return userData;
-                } catch (error) { throw "Registration Failed: " + error.message; }
+                } catch (error) { throw error.message; }
             }
         };
         window.dispatchEvent(new Event('db-ready'));
@@ -171,7 +170,9 @@
             const [open, setOpen] = useState(false);
             const add = (p, s) => { setCart(prev => {
                 const ex = prev.find(i => i._id === p._id && i.size === s);
-                return ex ? prev.map(i => i===ex ? {...i, qty:i.qty+1}:i) : [...prev, {...p, size:s, qty:1}];
+                // Use salePrice if available
+                const finalPrice = p.salePrice && p.salePrice > 0 ? p.salePrice : p.price;
+                return ex ? prev.map(i => i===ex ? {...i, qty:i.qty+1}:i) : [...prev, {...p, price: finalPrice, size:s, qty:1}];
             }); setOpen(true); };
             const remove = (id, s) => setCart(p => p.filter(i => !(i._id === id && i.size === s)));
             const total = cart.reduce((a, b) => a + (b.price * b.qty), 0);
@@ -312,7 +313,7 @@
             const [list, setList] = useState([]);
             const [loading, setLoading] = useState(true);
             useEffect(() => {
-                window.scrollTo(0, 0); // Force scroll to top on mobile
+                window.scrollTo(0, 0); 
                 const f = async () => { if (window.DB) { setList(await window.DB.getProducts()); setLoading(false); } };
                 f(); if(!window.DB) window.addEventListener('db-ready', f);
                 return ()=>window.removeEventListener('db-ready', f);
@@ -339,10 +340,20 @@
                                 <div className="h-[300px] md:h-[400px] overflow-hidden relative mb-4 bg-black">
                                     <img src={p.images[0]} className="w-full h-full object-cover group-hover:scale-105 transition duration-500 opacity-80 group-hover:opacity-100"/>
                                     {p.status==='sold_out' && <div className="absolute inset-0 flex items-center justify-center bg-black/60 font-bold tracking-widest text-xs">SOLD OUT</div>}
+                                    {p.salePrice && p.salePrice > 0 && p.status!=='sold_out' && <div className="absolute top-2 right-2 bg-brand-accent text-black px-2 py-1 text-[9px] font-black tracking-widest">SALE</div>}
                                 </div>
                                 <div className="flex justify-between items-start px-1">
                                     <div><h3 className="font-bold text-base md:text-lg">{p.name}</h3><p className="text-[10px] text-gray-500 uppercase tracking-widest">{p.category}</p></div>
-                                    <span className="text-brand-accent font-mono text-base md:text-lg font-bold">₹{p.price}</span>
+                                    <div className="text-right">
+                                        {p.salePrice && p.salePrice > 0 ? (
+                                            <>
+                                                <div className="text-gray-500 strike-price text-xs font-mono">₹{p.price}</div>
+                                                <div className="text-brand-accent font-mono text-base md:text-lg font-bold">₹{p.salePrice}</div>
+                                            </>
+                                        ) : (
+                                            <span className="text-brand-accent font-mono text-base md:text-lg font-bold">₹{p.price}</span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         ))}
@@ -357,6 +368,10 @@
             const [idx, setIdx] = useState(0);
             useEffect(() => { window.scrollTo(0, 0); }, []);
             if(!p) return null;
+            
+            // Handle legacy products without size stock object
+            const getStock = (s) => p.sizes ? parseInt(p.sizes[s] || 0) : 999;
+
             return (
                 <div className="pt-28 md:pt-24 px-4 md:px-12 pb-20 min-h-screen">
                     <button onClick={()=>window.history.back()} className="flex items-center gap-2 text-xs font-bold text-gray-500 mb-6 md:mb-8 uppercase tracking-widest"><Icon name="ArrowLeft" size={14}/> Back</button>
@@ -367,13 +382,39 @@
                         </div>
                         <div className="flex flex-col justify-center">
                             <h1 className="text-3xl md:text-6xl font-black italic mb-2 uppercase leading-none tracking-tighter break-words">{p.name}</h1>
-                            <p className="text-xl md:text-2xl text-brand-accent mb-6 font-mono font-bold">₹{p.price}</p>
+                            
+                            <div className="mb-6">
+                                {p.salePrice && p.salePrice > 0 ? (
+                                    <div className="flex items-center gap-4">
+                                        <span className="text-2xl md:text-3xl text-brand-accent font-mono font-bold">₹{p.salePrice}</span>
+                                        <span className="text-lg text-gray-500 strike-price font-mono">₹{p.price}</span>
+                                        <span className="bg-brand-accent/20 text-brand-accent px-2 py-1 text-[10px] font-bold uppercase tracking-widest">Price Cut</span>
+                                    </div>
+                                ) : (
+                                    <p className="text-xl md:text-2xl text-brand-accent font-mono font-bold">₹{p.price}</p>
+                                )}
+                            </div>
+
                             <p className="text-gray-400 mb-8 text-sm leading-relaxed max-w-md">{p.description}</p>
                             <div className="mb-8">
                                 <p className="font-bold mb-3 text-[10px] text-gray-500 tracking-widest uppercase">Select Size</p>
-                                <div className="flex gap-3">{['S','M','L','XL'].map(s=><button key={s} onClick={()=>setSize(s)} className={`w-12 h-12 border flex items-center justify-center font-bold text-xs ${size===s?'bg-white text-black':'border-gray-800 text-gray-500 hover:border-white'}`}>{s}</button>)}</div>
+                                <div className="flex gap-3 flex-wrap">
+                                    {['S','M','L','XL'].map(s => {
+                                        const qty = getStock(s);
+                                        if (qty <= 0) return null; // Hide if no stock
+                                        return (
+                                            <button key={s} onClick={()=>setSize(s)} className={`w-12 h-12 border flex items-center justify-center font-bold text-xs transition ${size===s?'bg-white text-black':'border-gray-800 text-gray-500 hover:border-white'}`}>
+                                                {s}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                {/* If all sizes are sold out */}
+                                {['S','M','L','XL'].every(s => getStock(s) <= 0) && (
+                                    <p className="text-red-500 font-bold uppercase text-xs tracking-widest mt-2">Currently Out of Stock</p>
+                                )}
                             </div>
-                            <button onClick={()=>size?add(p,size):alert('Select Size')} className="w-full bg-brand-accent py-5 font-black text-black tracking-[0.2em] hover:bg-white transition uppercase text-xs">Add to Bag</button>
+                            <button onClick={()=>size?add(p,size):alert('Select Size')} className="w-full bg-brand-accent py-5 font-black text-black tracking-[0.2em] hover:bg-white transition uppercase text-xs disabled:opacity-50 disabled:cursor-not-allowed" disabled={['S','M','L','XL'].every(s => getStock(s) <= 0)}>Add to Bag</button>
                         </div>
                     </div>
                 </div>
@@ -479,16 +520,33 @@
             const { settings, updateSettings } = useContext(SettingsCtx);
             const [tab, setTab] = useState('orders');
             const [data, setData] = useState({p:[], o:[]});
-            const [form, setForm] = useState({name:'', price:'', cat:'Hoodies', desc:'', imgs:[]});
+            
+            // UPDATED FORM: Added salePrice and size stock keys
+            const [form, setForm] = useState({
+                name:'', price:'', salePrice: '', cat:'Hoodies', desc:'', imgs:[],
+                sizes: { S: 0, M: 0, L: 0, XL: 0 } 
+            });
             const [dropForm, setDropForm] = useState({ dropTitle: settings.dropTitle, dropImage: settings.dropImage });
+            
             if(!user || user.role !== 'admin') return <Auth />;
             const refresh = async () => { if(window.DB) { setData({p: await window.DB.getProducts(), o: await window.DB.getOrders()}); }};
             useEffect(() => { refresh(); }, []);
+            
             const addProd = async (e) => {
                 e.preventDefault();
-                await window.DB.createProduct({name:form.name, price:Number(form.price), category:form.cat, images:form.imgs, description:form.desc});
-                setForm({name:'', price:'', cat:'Hoodies', desc:'', imgs:[]}); refresh(); alert('Published');
+                await window.DB.createProduct({
+                    name: form.name, 
+                    price: Number(form.price), 
+                    salePrice: Number(form.salePrice),
+                    category: form.cat, 
+                    images: form.imgs, 
+                    description: form.desc,
+                    sizes: form.sizes 
+                });
+                setForm({name:'', price:'', salePrice: '', cat:'Hoodies', desc:'', imgs:[], sizes: { S: 0, M: 0, L: 0, XL: 0 }}); 
+                refresh(); alert('Published');
             };
+
             return (
                 <div className="pt-20 md:pt-24 px-4 md:px-12 pb-20 min-h-screen bg-black uppercase">
                     <div className="flex justify-between items-center mb-8 border-b border-gray-800 pb-4 font-black italic">
@@ -523,16 +581,31 @@
                         <form onSubmit={addProd} className="max-w-xl glass-panel p-6 md:p-8 space-y-4">
                             <input required placeholder="Name" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} className="w-full p-4 text-[10px] font-black uppercase tracking-widest"/>
                             <div className="grid grid-cols-2 gap-4">
-                                <input required type="number" placeholder="Price" value={form.price} onChange={e=>setForm({...form,price:e.target.value})} className="p-4 text-[10px] font-black w-full"/>
-                                <select value={form.cat} onChange={e=>setForm({...form,cat:e.target.value})} className="p-4 text-[10px] font-black w-full"><option>Hoodies</option><option>Tees</option><option>Pants</option></select>
+                                <input required type="number" placeholder="Real Price" value={form.price} onChange={e=>setForm({...form,price:e.target.value})} className="p-4 text-[10px] font-black w-full"/>
+                                <input type="number" placeholder="Sale Price (Optional)" value={form.salePrice} onChange={e=>setForm({...form,salePrice:e.target.value})} className="p-4 text-[10px] font-black w-full text-brand-accent"/>
                             </div>
+                            <select value={form.cat} onChange={e=>setForm({...form,cat:e.target.value})} className="p-4 text-[10px] font-black w-full"><option>Hoodies</option><option>Tees</option><option>Pants</option></select>
+                            
+                            {/* Stock Management Inputs */}
+                            <div className="border border-gray-800 p-4">
+                                <p className="text-[10px] font-bold mb-2 text-gray-500 tracking-widest">STOCK PER SIZE (PCS)</p>
+                                <div className="grid grid-cols-4 gap-2">
+                                    {['S','M','L','XL'].map(s => (
+                                        <div key={s}>
+                                            <label className="text-[9px] block mb-1 text-gray-400">{s}</label>
+                                            <input type="number" value={form.sizes[s]} onChange={e => setForm({...form, sizes: {...form.sizes, [s]: e.target.value}})} className="w-full p-2 text-center font-mono font-bold text-xs" />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
                             <textarea required placeholder="Description" value={form.desc} onChange={e=>setForm({...form,desc:e.target.value})} className="w-full p-4 text-[10px]" rows="3"></textarea>
                             <input type="file" multiple accept="image/*" onChange={(e)=>{
                                 const files = Array.from(e.target.files);
                                 Promise.all(files.map(f => new Promise(r => { const rd = new FileReader(); rd.onload=()=>r(rd.result); rd.readAsDataURL(f); })))
                                 .then(imgs => setForm(p => ({...p, imgs: [...p.imgs, ...imgs]})));
                             }} className="text-[10px] w-full"/>
-                            <button className="w-full bg-brand-accent text-black font-black py-5 uppercase text-[10px] tracking-widest">Publish</button>
+                            <button className="w-full bg-brand-accent text-black font-black py-5 uppercase text-[10px] tracking-widest">Publish Product</button>
                         </form>
                     )}
                     {tab === 'manage' && (
@@ -541,10 +614,14 @@
                                 <div key={p._id} className="glass-panel p-4 flex items-center gap-4">
                                     <img src={p.images[0]} className="w-16 h-16 object-cover"/>
                                     <div className="flex-1 min-w-0">
-                                        <h4 className="truncate">{p.name}</h4><p className="text-brand-accent font-mono mt-1">₹{p.price}</p>
+                                        <h4 className="truncate">{p.name}</h4>
+                                        <div className="flex gap-2">
+                                            <p className={`font-mono mt-1 ${p.salePrice ? 'text-gray-500 strike-price' : 'text-brand-accent'}`}>₹{p.price}</p>
+                                            {p.salePrice && <p className="font-mono mt-1 text-brand-accent">₹{p.salePrice}</p>}
+                                        </div>
+                                        <p className="text-[8px] text-gray-500 mt-1">STOCK: S:{p.sizes?.S||0} M:{p.sizes?.M||0} L:{p.sizes?.L||0} XL:{p.sizes?.XL||0}</p>
                                     </div>
                                     <div className="flex gap-2 shrink-0">
-                                        <button onClick={async()=>{await window.DB.toggleStock(p._id, p.status); refresh()}} className={`p-2 rounded ${p.status==='sold_out'?'text-red-500':'text-green-500'}`}><Icon name="Box" size={18}/></button>
                                         <button onClick={async()=>{if(confirm('Delete?')){await window.DB.deleteProduct(p._id); refresh()}}} className="text-gray-500 hover:text-red-500"><Icon name="Trash2" size={18}/></button>
                                     </div>
                                 </div>
@@ -633,21 +710,32 @@
         const Auth = () => {
             const { login, register } = useContext(AuthCtx);
             const [isLogin, setIsLogin] = useState(true);
+            const [isLoading, setIsLoading] = useState(false);
             const [f, setF] = useState({ name: '', phone: '', pass: '' });
+            
             const submit = async () => {
-                let u = isLogin ? await login(f.phone, f.pass) : await register(f.name, f.phone, f.pass);
-                if(u) window.location.hash = u.role==='admin' ? '#admin' : '#home';
+                setIsLoading(true);
+                try {
+                    let u = isLogin ? await login(f.phone, f.pass) : await register(f.name, f.phone, f.pass);
+                    if(u) window.location.hash = u.role==='admin' ? '#admin' : '#home';
+                } catch(e) {
+                    alert(e);
+                }
+                setIsLoading(false);
             };
+
             return (
                 <div className="h-screen flex items-center justify-center bg-black bg-[url('https://images.unsplash.com/photo-1483119624769-b1a73c2537c5?auto=format&fit=crop&w=1920&q=80')] bg-cover uppercase p-4">
                     <div className="glass-panel p-6 md:p-10 w-full max-w-sm backdrop-blur-xl bg-black/80">
                         <h2 className="text-3xl font-black italic text-center mb-8 tracking-tighter">{isLogin?'Login':'Join'}</h2>
                         <div className="space-y-4 mb-8">
                             {!isLogin && <input placeholder="Name" onChange={e=>setF({...f,name:e.target.value})} className="w-full p-4 text-[10px] font-black uppercase"/>}
-                            <input placeholder="Phone / Email" onChange={e=>setF({...f,phone:e.target.value})} className="w-full p-4 text-[10px] font-black uppercase"/>
+                            <input placeholder="Email" type="email" onChange={e=>setF({...f,phone:e.target.value})} className="w-full p-4 text-[10px] font-black uppercase"/>
                             <input placeholder="Password" type="password" onChange={e=>setF({...f,pass:e.target.value})} className="w-full p-4 text-[10px] font-black uppercase"/>
                         </div>
-                        <button onClick={submit} className="w-full bg-brand-accent text-black font-black py-4 uppercase text-[10px] tracking-widest">{isLogin?'Access Store':'Create Profile'}</button>
+                        <button onClick={submit} disabled={isLoading} className="w-full bg-brand-accent text-black font-black py-4 uppercase text-[10px] tracking-widest disabled:opacity-50">
+                            {isLoading ? 'Processing...' : (isLogin?'Access Store':'Create Profile')}
+                        </button>
                         <p className="text-center text-[10px] text-gray-500 mt-6 cursor-pointer font-black tracking-widest" onClick={()=>setIsLogin(!isLogin)}>{isLogin ? "Join Streetology" : "Back to login"}</p>
                     </div>
                 </div>
@@ -700,7 +788,7 @@
                                 {view === 'account' && <Account key="ac"/>}
                                 {view === 'auth' && <Auth key="au"/>}
                                 {view === 'success' && <div key="s" className="h-screen flex items-center justify-center flex-col text-center px-4 uppercase font-black italic"><Icon name="CheckCircle" size={80} className="text-green-500 mb-6"/><h1 className="text-3xl md:text-4xl mb-4 tracking-tighter">Order Success</h1><p className="text-gray-500 text-[10px] mb-8 tracking-[0.3em] font-black">Thank you for your order.</p><div className="flex gap-4"><a href="#account" className="bg-white text-black px-6 py-3 text-[10px] uppercase tracking-widest not-italic">Track Order</a><a href="#shop" className="border border-white text-white px-6 py-3 text-[10px] uppercase tracking-widest not-italic">Continue</a></div></div>}
-                                {view === 'about' && <div className="pt-32 text-center max-w-2xl mx-auto px-4 uppercase font-black"><h1 className="text-4xl mb-4 italic tracking-tighter">Streetology</h1><p className="text-gray-500 tracking-[0.2em] text-[10px] leading-relaxed italic">The Future of Streetwear. Est 2025.</p></div>}
+                                {view === 'about' && <div className="pt-32 text-center max-w-2xl mx-auto px-4 uppercase font-black"><h1 className="text-4xl mb-4 italic tracking-tighter">Streetology</h1><p className="text-gray-500 tracking-[0.2em] text-[10px] leading-relaxed italic">STREETOLOGY — started in 2025. Where we’ll be in 2030, only time will tell. But till then, we promise to bring you the best of streetwear. Thank you.</p></div>}
                                 {view === 'contact' && <div className="pt-32 text-center px-4 uppercase font-black"><h1 className="text-4xl mb-4 italic tracking-tighter">Contact</h1><a href="mailto:support@streetology.com" className="text-brand-accent text-xl font-mono tracking-tighter italic underline break-all">support@streetology.com</a></div>}
                             </AnimatePresence>
                             <CartSidebar/>
