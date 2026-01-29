@@ -22,6 +22,9 @@
                     },
                     fontFamily: {
                         serif: ['"Didot"', '"Playfair Display"', 'Times New Roman', 'serif']
+                    },
+                    animation: {
+                        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                     }
                 }
             }
@@ -37,6 +40,11 @@
         * { -webkit-tap-highlight-color: transparent; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none;  scrollbar-width: none; }
+        
+        /* Neon Glow for the Split Line */
+        .split-line-glow {
+            box-shadow: 0 0 15px #FF3333, 0 0 30px #FF3333;
+        }
     </style>
 
     <script type="module">
@@ -173,20 +181,16 @@
             return <CartCtx.Provider value={{cart, open, setOpen, add, remove, total, clear: ()=>setCart([])}}>{children}</CartCtx.Provider>;
         };
 
-        // OPTIMIZED SETTINGS PROVIDER (With Caching for Instant Load)
         const SettingsProvider = ({children}) => {
-            // Initialize from LocalStorage if available (INSTANT LOAD)
             const [settings, setSettings] = useState(() => {
                 const cached = localStorage.getItem('street_settings');
                 return cached ? JSON.parse(cached) : null;
             });
-            
             useEffect(() => {
                 const f = async () => { 
                     if(window.DB) {
                         const s = await window.DB.getSettings();
                         setSettings(s);
-                        // Save latest to cache
                         localStorage.setItem('street_settings', JSON.stringify(s));
                     }
                 };
@@ -194,7 +198,6 @@
                 window.addEventListener('db-ready', f); 
                 return ()=>window.removeEventListener('db-ready', f);
             }, []);
-
             return <SettingsCtx.Provider value={{
                 settings: settings || { locked: false, dropTitle: "", dropImage: "" }, 
                 isLoading: settings === null, 
@@ -206,26 +209,6 @@
             }}>{children}</SettingsCtx.Provider>
         };
 
-        const DoorOverlay = ({ show }) => {
-            return (
-                <AnimatePresence>
-                    {show && (
-                        <div className="fixed inset-0 z-[100] flex pointer-events-none">
-                            <motion.div initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }} className="w-1/2 h-full bg-[#0a0a0a] border-r border-gray-800 flex items-center justify-end pr-4">
-                                <div className="h-12 w-1 bg-gray-800/50 rounded-full"></div>
-                            </motion.div>
-                            <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }} className="w-1/2 h-full bg-[#0a0a0a] border-l border-gray-800 flex items-center justify-start pl-4">
-                                <div className="h-12 w-1 bg-gray-800/50 rounded-full"></div>
-                            </motion.div>
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ delay: 0.3, duration: 0.3 }} className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <span className="text-white/90 font-serif tracking-[0.2em] md:tracking-[0.4em] text-sm md:text-xl text-center px-4 uppercase font-medium">ENTER THE WORLD OF STREETOLOGY</span>
-                            </motion.div>
-                        </div>
-                    )}
-                </AnimatePresence>
-            );
-        };
-
         const Navbar = () => {
             const { cart, setOpen } = useContext(CartCtx);
             const { user, logout } = useContext(AuthCtx);
@@ -233,7 +216,7 @@
             const [menu, setMenu] = useState(false);
             if(settings.locked) return null;
             return (
-                <nav className="fixed w-full top-0 z-50 glass-nav h-16 flex items-center justify-between px-4 md:px-6">
+                <nav className="fixed w-full top-0 z-40 glass-nav h-16 flex items-center justify-between px-4 md:px-6">
                     <div className="flex items-center gap-4">
                         <button onClick={()=>setMenu(true)} className="md:hidden text-white"><Icon name="Menu"/></button>
                         <a href="#home" className="text-lg md:text-xl font-bold tracking-tighter text-white">STREETOLOGY</a>
@@ -272,14 +255,14 @@
 
         const Hero = ({ onEnter }) => {
             const { settings, isLoading } = useContext(SettingsCtx);
-            
-            // If still loading (first visit ever) show black. 
-            // If cached (return visit), shows settings immediately.
+            const bgImage = "https://images.unsplash.com/photo-1523398002811-999ca8dec234?auto=format&fit=crop&w=1920&q=80";
+
             if (isLoading) return <div className="h-screen bg-black w-full flex items-center justify-center"></div>;
 
+            // LOCKED STATE (No animation, just static)
             if(settings.locked) {
                 return (
-                    <div className="h-screen relative flex flex-col items-center justify-center bg-black overflow-hidden px-4 text-center">
+                    <div className="h-screen fixed inset-0 z-50 flex flex-col items-center justify-center bg-black overflow-hidden px-4 text-center">
                         {settings.dropImage && (
                             <>
                                 <img src={settings.dropImage} className="absolute inset-0 w-full h-full object-cover opacity-20 blur-2xl grayscale"/>
@@ -298,16 +281,69 @@
                     </div>
                 );
             }
+
+            // UNLOCKED STATE - SPLIT ANIMATION LOGIC
+            // This component stays mounted with z-50 until it splits.
             return (
-                <div className="h-screen relative flex items-center justify-center bg-black overflow-hidden">
-                    <img src="https://images.unsplash.com/photo-1523398002811-999ca8dec234?auto=format&fit=crop&w=1920&q=80" className="absolute inset-0 w-full h-full object-cover opacity-40 grayscale contrast-125"/>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/60"></div>
-                    <div className="z-10 text-center px-4 w-full">
-                        <motion.h1 initial={{y:50, opacity:0}} animate={{y:0, opacity:1}} className="text-5xl sm:text-6xl md:text-9xl font-bold text-white tracking-tighter leading-none mb-4">STREETOLOGY</motion.h1>
-                        <p className="text-gray-400 tracking-[0.3em] md:tracking-[0.5em] font-mono mb-12 text-[10px] md:text-xs uppercase">Future Wear // Est. 2025</p>
-                        <button onClick={onEnter} className="bg-white text-black px-8 md:px-12 py-3 md:py-4 font-black tracking-widest hover:bg-brand-accent hover:text-white transition uppercase text-xs md:text-sm">Enter Store</button>
-                    </div>
-                </div>
+                <motion.div className="fixed inset-0 z-50 flex pointer-events-none">
+                    
+                    {/* LEFT PANEL */}
+                    <motion.div 
+                        initial={{ x: 0 }}
+                        exit={{ x: "-100%" }}
+                        transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
+                        className="w-1/2 h-full relative bg-black border-r border-brand-accent pointer-events-auto"
+                        style={{boxShadow: "inset -10px 0 20px -10px rgba(255, 51, 51, 0.5)"}}
+                    >
+                        {/* Background Image Setup for seamless split */}
+                        <div className="absolute inset-0 w-full h-full" 
+                             style={{
+                                 backgroundImage: `url(${bgImage})`, 
+                                 backgroundSize: '200% 100%', 
+                                 backgroundPosition: 'left center'
+                             }}>
+                        </div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/60"></div>
+                        <div className="absolute inset-0 bg-black/40"></div>
+                    </motion.div>
+
+                    {/* RIGHT PANEL */}
+                    <motion.div 
+                        initial={{ x: 0 }}
+                        exit={{ x: "100%" }}
+                        transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
+                        className="w-1/2 h-full relative bg-black border-l border-brand-accent pointer-events-auto"
+                        style={{boxShadow: "inset 10px 0 20px -10px rgba(255, 51, 51, 0.5)"}}
+                    >
+                        <div className="absolute inset-0 w-full h-full" 
+                             style={{
+                                 backgroundImage: `url(${bgImage})`, 
+                                 backgroundSize: '200% 100%', 
+                                 backgroundPosition: 'right center'
+                             }}>
+                        </div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/60"></div>
+                        <div className="absolute inset-0 bg-black/40"></div>
+                    </motion.div>
+
+                    {/* CENTER CONTENT (Fades out immediately) */}
+                    <motion.div 
+                        exit={{ opacity: 0, scale: 2 }}
+                        transition={{ duration: 0.5 }}
+                        className="absolute inset-0 flex items-center justify-center flex-col text-center z-50 pointer-events-auto"
+                    >
+                        <motion.h1 initial={{y:50, opacity:0}} animate={{y:0, opacity:1}} className="text-5xl sm:text-6xl md:text-9xl font-bold text-white tracking-tighter leading-none mb-4 mix-blend-overlay">STREETOLOGY</motion.h1>
+                        <p className="text-brand-accent tracking-[0.3em] md:tracking-[0.5em] font-mono mb-12 text-[10px] md:text-xs uppercase drop-shadow-lg">Future Wear // Est. 2025</p>
+                        
+                        {/* Diamond/Hexagon Enter Button */}
+                        <div className="relative group cursor-pointer" onClick={onEnter}>
+                            <div className="absolute inset-0 bg-brand-accent blur-xl opacity-20 group-hover:opacity-40 transition duration-500"></div>
+                            <div className="bg-black/50 backdrop-blur-md border border-brand-accent/50 px-8 md:px-12 py-3 md:py-4 hover:bg-brand-accent hover:text-black transition duration-300">
+                                <span className="font-black tracking-widest uppercase text-xs md:text-sm text-white group-hover:text-black">Enter Store</span>
+                            </div>
+                        </div>
+                    </motion.div>
+                </motion.div>
             );
         };
 
@@ -320,7 +356,12 @@
                 return ()=>window.removeEventListener('db-ready', f);
             }, []);
             return (
-                <div className="pt-20 md:pt-24 px-4 md:px-12 pb-20 min-h-screen">
+                <motion.div 
+                    initial={{opacity: 0}}
+                    animate={{opacity: 1}}
+                    transition={{duration: 1, delay: 0.2}} // Slight delay to let doors start opening
+                    className="pt-20 md:pt-24 px-4 md:px-12 pb-20 min-h-screen bg-[#050505]"
+                >
                     <h2 className="text-3xl md:text-4xl font-bold tracking-tighter mb-8 md:mb-12 border-b border-gray-800 pb-4 italic uppercase">Collection</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                         {list.map(p => (
@@ -336,7 +377,7 @@
                             </div>
                         ))}
                     </div>
-                </div>
+                </motion.div>
             );
         };
 
@@ -649,7 +690,6 @@
         const App = () => {
             const [view, setView] = useState('home');
             const [curr, setCurr] = useState(null);
-            const [entering, setEntering] = useState(false); // Controls door closing
 
             useEffect(() => {
                 const h = () => {
@@ -662,29 +702,14 @@
                 window.addEventListener('hashchange', h); h(); return () => window.removeEventListener('hashchange', h);
             }, []);
 
-            // Handle Door Transition
-            const handleEnterStore = () => {
-                setEntering(true); // 1. Doors Close (Slide In)
-                
-                // 2. Wait for doors to close (800ms match duration), then change view
-                setTimeout(() => {
-                    window.location.hash = '#shop';
-                    
-                    // 3. Briefly wait for new view to render behind doors, then Open (Slide Out)
-                    setTimeout(() => {
-                        setEntering(false); // Triggers exit animation
-                    }, 100); 
-                }, 1000);
-            };
-
             return (
                 <AuthProvider>
                     <SettingsProvider>
                         <CartProvider>
                             <Navbar/>
-                            <DoorOverlay show={entering} />
-                            <AnimatePresence mode="wait">
-                                {view === 'home' && <Hero key="h" onEnter={handleEnterStore}/>}
+                            {/* Removed mode="wait" to allow Shop to be visible BEHIND the exiting Hero */}
+                            <AnimatePresence>
+                                {view === 'home' && <Hero key="h" onEnter={() => window.location.hash='#shop'}/>}
                                 {view === 'shop' && <Shop key="s" setCurr={setCurr}/>}
                                 {view === 'product' && <Product key="p" p={curr}/>}
                                 {view === 'checkout' && <Checkout key="c"/>}
