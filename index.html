@@ -101,6 +101,19 @@
             },
             async deleteVoucher(id) { await remove(ref(db, `vouchers/${id}`)); },
 
+            // Messages (Contact Form)
+            async sendMessage(msg) {
+                const r = push(ref(db, 'messages'));
+                await set(r, { ...msg, createdAt: new Date().toLocaleString() });
+            },
+            async getMessages() {
+                try {
+                    const s = await get(ref(db, 'messages'));
+                    return s.exists() ? Object.entries(s.val()).map(([k, v]) => ({...v, _id: k})).reverse() : [];
+                } catch(e) { return []; }
+            },
+            async deleteMessage(id) { await remove(ref(db, `messages/${id}`)); },
+
             // Orders
             async createOrder(o) {
                 const r = push(ref(db, 'orders'));
@@ -162,7 +175,8 @@
                 CheckCircle: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>,
                 Upload: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>,
                 Edit: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>,
-                Ticket: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/></svg>
+                Ticket: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/></svg>,
+                Mail: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
             };
             return icons[name] || null;
         };
@@ -542,7 +556,7 @@
             const { user } = useContext(AuthCtx);
             const { settings, updateSettings } = useContext(SettingsCtx);
             const [tab, setTab] = useState('orders');
-            const [data, setData] = useState({p:[], o:[], v:[]});
+            const [data, setData] = useState({p:[], o:[], v:[], m:[]});
             
             const [form, setForm] = useState({ name:'', price:'', salePrice: '', cat:'Hoodies', desc:'', imgs:[], sizes: { S: 0, M: 0, L: 0, XL: 0 } });
             const [voucherForm, setVoucherForm] = useState({ code: '', amount: '' });
@@ -557,7 +571,8 @@
                     setData({
                         p: await window.DB.getProducts(), 
                         o: await window.DB.getOrders(),
-                        v: await window.DB.getVouchers()
+                        v: await window.DB.getVouchers(),
+                        m: await window.DB.getMessages()
                     }); 
                 }
             };
@@ -611,7 +626,7 @@
                         <button onClick={refresh} className="text-[10px] font-bold border border-gray-700 px-4 py-2 hover:bg-white hover:text-black">REFRESH</button>
                     </div>
                     <div className="flex gap-6 mb-8 overflow-x-auto text-[10px] font-black tracking-widest border-b border-gray-900 pb-2 no-scrollbar">
-                        {['orders','add','manage', 'vouchers', 'dropzone'].map(t => <button key={t} onClick={()=>setTab(t)} className={`${tab===t?'text-brand-accent border-b-2 border-brand-accent':'text-gray-600'} whitespace-nowrap`}>{t}</button>)}
+                        {['orders','inbox','add','manage', 'vouchers', 'dropzone'].map(t => <button key={t} onClick={()=>setTab(t)} className={`${tab===t?'text-brand-accent border-b-2 border-brand-accent':'text-gray-600'} whitespace-nowrap`}>{t}</button>)}
                     </div>
                     
                     {editingProduct && (
@@ -666,6 +681,22 @@
                                             </div>
                                         </div>
                                     </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {tab === 'inbox' && (
+                        <div className="space-y-4">
+                            {!data.m.length && <p className="text-center text-gray-500 text-[10px] italic">NO MESSAGES</p>}
+                            {data.m.map(m => (
+                                <div key={m._id} className="glass-panel p-4 border-l-2 border-white">
+                                    <div className="flex justify-between mb-2">
+                                        <h3 className="font-bold text-sm text-brand-accent">{m.name}</h3>
+                                        <span className="text-[9px] text-gray-500">{m.createdAt}</span>
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 mb-2 font-mono">{m.email}</p>
+                                    <p className="text-xs font-medium leading-relaxed bg-white/5 p-3 rounded">{m.message}</p>
+                                    <button onClick={async()=>{if(confirm('Delete Msg?')){await window.DB.deleteMessage(m._id); refresh()}}} className="text-[9px] text-red-500 mt-2 hover:text-white font-bold tracking-widest">DELETE</button>
                                 </div>
                             ))}
                         </div>
@@ -898,6 +929,51 @@
             );
         };
 
+        const Contact = () => {
+            const [form, setForm] = useState({ name: '', email: '', message: '' });
+            const [sending, setSending] = useState(false);
+
+            const submit = async (e) => {
+                e.preventDefault();
+                setSending(true);
+                try {
+                    await window.DB.sendMessage(form);
+                    alert('Message Sent!');
+                    setForm({ name: '', email: '', message: '' });
+                } catch(e) { alert('Error sending message'); }
+                setSending(false);
+            };
+
+            return (
+                <div className="pt-32 text-center max-w-2xl mx-auto px-4 uppercase font-black">
+                    <h1 className="text-4xl mb-8 italic tracking-tighter">Contact Us</h1>
+                    <div className="glass-panel p-8 text-left">
+                        <form onSubmit={submit} className="space-y-6">
+                            <div>
+                                <label className="text-[10px] tracking-widest text-gray-500 mb-2 block">FULL NAME</label>
+                                <input required value={form.name} onChange={e=>setForm({...form, name: e.target.value})} className="w-full p-4 text-sm font-bold bg-white/5 border border-white/10 focus:border-brand-accent outline-none" placeholder="ENTER NAME"/>
+                            </div>
+                            <div>
+                                <label className="text-[10px] tracking-widest text-gray-500 mb-2 block">EMAIL ADDRESS</label>
+                                <input type="email" required value={form.email} onChange={e=>setForm({...form, email: e.target.value})} className="w-full p-4 text-sm font-bold bg-white/5 border border-white/10 focus:border-brand-accent outline-none" placeholder="ENTER EMAIL"/>
+                            </div>
+                            <div>
+                                <label className="text-[10px] tracking-widest text-gray-500 mb-2 block">MESSAGE</label>
+                                <textarea required rows="4" value={form.message} onChange={e=>setForm({...form, message: e.target.value})} className="w-full p-4 text-sm font-bold bg-white/5 border border-white/10 focus:border-brand-accent outline-none" placeholder="TYPE YOUR MESSAGE..."></textarea>
+                            </div>
+                            <button disabled={sending} className="w-full bg-brand-accent text-black py-4 font-black tracking-[0.2em] hover:bg-white transition disabled:opacity-50">
+                                {sending ? 'SENDING...' : 'SEND MESSAGE'}
+                            </button>
+                        </form>
+                        <div className="mt-8 pt-8 border-t border-white/10 text-center">
+                            <p className="text-[10px] tracking-widest text-gray-500 mb-2">DIRECT EMAIL</p>
+                            <a href="mailto:support@streetology.com" className="text-brand-accent text-sm font-mono tracking-wider hover:text-white transition">support@streetology.com</a>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         const App = () => {
             const [view, setView] = useState('home');
             const [curr, setCurr] = useState(null);
@@ -945,7 +1021,7 @@
                                 {view === 'auth' && <Auth key="au"/>}
                                 {view === 'success' && <div key="s" className="h-screen flex items-center justify-center flex-col text-center px-4 uppercase font-black italic"><Icon name="CheckCircle" size={80} className="text-green-500 mb-6"/><h1 className="text-3xl md:text-4xl mb-4 tracking-tighter">Order Success</h1><p className="text-gray-500 text-[10px] mb-8 tracking-[0.3em] font-black">Thank you for your order.</p><div className="flex gap-4"><a href="#account" className="bg-white text-black px-6 py-3 text-[10px] uppercase tracking-widest not-italic">Track Order</a><a href="#shop" className="border border-white text-white px-6 py-3 text-[10px] uppercase tracking-widest not-italic">Continue</a></div></div>}
                                 {view === 'about' && <div className="pt-32 text-center max-w-2xl mx-auto px-4 uppercase font-black"><h1 className="text-4xl mb-4 italic tracking-tighter">Streetology</h1><p className="text-gray-500 tracking-[0.2em] text-[10px] leading-relaxed italic">STREETOLOGY — started in 2025. Where we’ll be in 2030, only time will tell. But till then, we promise to bring you the best of streetwear. Thank you.</p></div>}
-                                {view === 'contact' && <div className="pt-32 text-center px-4 uppercase font-black"><h1 className="text-4xl mb-4 italic tracking-tighter">Contact</h1><a href="mailto:support@streetology.com" className="text-brand-accent text-xl font-mono tracking-tighter italic underline break-all">support@streetology.com</a></div>}
+                                {view === 'contact' && <Contact key="contact"/>}
                             </AnimatePresence>
                             <CartSidebar/>
                         </CartProvider>
