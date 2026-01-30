@@ -135,11 +135,11 @@
                 try {
                     const userCredential = await signInWithEmailAndPassword(auth, email, pw);
                     const user = userCredential.user;
-                    if(email === 'samimalik67@gmail.com') return { role: 'admin', name: 'Sami Malik', phone: email, _id: user.uid };
+                    if(email.toLowerCase() === 'samimalik67@gmail.com') return { role: 'admin', name: 'Sami Malik', phone: email, _id: user.uid };
                     const snap = await get(ref(db, 'users/' + user.uid));
                     const userData = snap.exists() ? snap.val() : {};
                     return { role: 'user', name: userData.name || 'User', phone: email, _id: user.uid };
-                } catch(error) { throw error.message; }
+                } catch(error) { throw error; }
             },
 
             async register(n, email, pw) {
@@ -149,7 +149,7 @@
                     const userData = { name: n, phone: email, role: 'user', _id: user.uid };
                     await set(ref(db, 'users/' + user.uid), userData);
                     return userData;
-                } catch (error) { throw error.message; }
+                } catch (error) { throw error; }
             }
         };
         window.dispatchEvent(new Event('db-ready'));
@@ -898,15 +898,24 @@
             const { login, register } = useContext(AuthCtx);
             const [isLogin, setIsLogin] = useState(true);
             const [isLoading, setIsLoading] = useState(false);
-            const [f, setF] = useState({ name: '', phone: '', pass: '' });
+            const [formData, setFormData] = useState({ name: '', email: '', pass: '' });
             
-            const submit = async () => {
+            const submit = async (e) => {
+                e.preventDefault();
                 setIsLoading(true);
                 try {
-                    let u = isLogin ? await login(f.phone, f.pass) : await register(f.name, f.phone, f.pass);
+                    let u = isLogin 
+                        ? await login(formData.email, formData.pass) 
+                        : await register(formData.name, formData.email, formData.pass);
+                    
                     if(u) window.location.hash = u.role==='admin' ? '#admin' : '#home';
-                } catch(e) {
-                    alert(e);
+                } catch(err) {
+                    // Cleaner Error Messages
+                    let msg = err.message || "Something went wrong";
+                    if(msg.includes('auth/invalid-credential')) msg = "Invalid Email or Password";
+                    if(msg.includes('auth/email-already-in-use')) msg = "Email already registered";
+                    if(msg.includes('auth/weak-password')) msg = "Password should be at least 6 chars";
+                    alert(msg);
                 }
                 setIsLoading(false);
             };
@@ -915,15 +924,41 @@
                 <div className="h-screen flex items-center justify-center bg-black bg-[url('https://images.unsplash.com/photo-1483119624769-b1a73c2537c5?auto=format&fit=crop&w=1920&q=80')] bg-cover uppercase p-4">
                     <div className="glass-panel p-6 md:p-10 w-full max-w-sm backdrop-blur-xl bg-black/80">
                         <h2 className="text-3xl font-black italic text-center mb-8 tracking-tighter">{isLogin?'Login':'Join'}</h2>
-                        <div className="space-y-4 mb-8">
-                            {!isLogin && <input placeholder="Name" onChange={e=>setF({...f,name:e.target.value})} className="w-full p-4 text-[10px] font-black uppercase"/>}
-                            <input placeholder="Email" type="email" onChange={e=>setF({...f,phone:e.target.value})} className="w-full p-4 text-[10px] font-black uppercase"/>
-                            <input placeholder="Password" type="password" onChange={e=>setF({...f,pass:e.target.value})} className="w-full p-4 text-[10px] font-black uppercase"/>
-                        </div>
-                        <button onClick={submit} disabled={isLoading} className="w-full bg-brand-accent text-black font-black py-4 uppercase text-[10px] tracking-widest disabled:opacity-50">
-                            {isLoading ? 'Processing...' : (isLogin?'Access Store':'Create Profile')}
-                        </button>
-                        <p className="text-center text-[10px] text-gray-500 mt-6 cursor-pointer font-black tracking-widest" onClick={()=>setIsLogin(!isLogin)}>{isLogin ? "Join Streetology" : "Back to login"}</p>
+                        <form onSubmit={submit} className="space-y-4 mb-8">
+                            {!isLogin && (
+                                <input 
+                                    required 
+                                    placeholder="Name" 
+                                    value={formData.name}
+                                    onChange={e=>setFormData({...formData, name: e.target.value})} 
+                                    className="w-full p-4 text-[10px] font-black uppercase bg-white/5 border border-white/10 focus:border-brand-accent outline-none text-white"
+                                />
+                            )}
+                            <input 
+                                required 
+                                type="email" 
+                                placeholder="Email" 
+                                autoComplete="username"
+                                value={formData.email}
+                                onChange={e=>setFormData({...formData, email: e.target.value})} 
+                                className="w-full p-4 text-[10px] font-black uppercase bg-white/5 border border-white/10 focus:border-brand-accent outline-none text-white"
+                            />
+                            <input 
+                                required 
+                                type="password" 
+                                placeholder="Password" 
+                                autoComplete="current-password"
+                                value={formData.pass}
+                                onChange={e=>setFormData({...formData, pass: e.target.value})} 
+                                className="w-full p-4 text-[10px] font-black uppercase bg-white/5 border border-white/10 focus:border-brand-accent outline-none text-white"
+                            />
+                            <button disabled={isLoading} className="w-full bg-brand-accent text-black font-black py-4 uppercase text-[10px] tracking-widest disabled:opacity-50 hover:bg-white transition">
+                                {isLoading ? 'Processing...' : (isLogin ? 'Access Store' : 'Create Profile')}
+                            </button>
+                        </form>
+                        <p className="text-center text-[10px] text-gray-500 mt-6 cursor-pointer font-black tracking-widest hover:text-white" onClick={()=>{setIsLogin(!isLogin); setFormData({name:'', email:'', pass:''})}}>
+                            {isLogin ? "Join Streetology" : "Back to login"}
+                        </p>
                     </div>
                 </div>
             );
