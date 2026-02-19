@@ -2,46 +2,27 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>STREETOLOGY | Future of Streetwear</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>STREETOLOGY | EST. 2025</title>
     
-    <!-- Tailwind CSS -->
+    <!-- Libraries -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    
-    <!-- Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Framer Motion -->
     <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
-
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
+    <!-- Config -->
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        brand: {
-                            black: '#0a0a0a', 
-                            dark: '#111',  
-                            gray: '#222',  
-                            light: '#ededed',
-                            accent: '#FF3333', // Neon Red
-                            accentHover: '#cc0000',
-                            glass: 'rgba(20, 20, 20, 0.7)'
-                        }
+                        brand: { black: '#0a0a0a', dark: '#111', gray: '#222', light: '#ededed', accent: '#FF3333' }
                     },
                     fontFamily: {
-                        sans: ['Helvetica Neue', 'Arial', 'sans-serif'],
-                        mono: ['Courier New', 'monospace'],
-                    },
-                    backgroundImage: {
-                        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+                        serif: ['"Didot"', '"Playfair Display"', 'Times New Roman', 'serif']
                     }
                 }
             }
@@ -51,35 +32,57 @@
     <style>
         body { background-color: #050505; color: #ededed; font-family: 'Helvetica Neue', sans-serif; overflow-x: hidden; }
         .glass-panel { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.05); }
-        .glass-nav { background: rgba(5, 5, 5, 0.8); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        input, select, textarea { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; transition: all 0.3s; }
-        input:focus, select:focus, textarea:focus { border-color: #FF3333; outline: none; background: rgba(255,255,255,0.08); }
-        .neon-text { text-shadow: 0 0 10px rgba(255, 51, 51, 0.5); }
+        .glass-nav { background: rgba(5, 5, 5, 0.9); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+        input, select, textarea { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; }
+        input:focus { border-color: #FF3333; outline: none; }
         * { -webkit-tap-highlight-color: transparent; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none;  scrollbar-width: none; }
+        .strike-price { text-decoration: line-through; text-decoration-color: #FF3333; text-decoration-thickness: 2px; }
     </style>
 
-    <!-- FIREBASE SETUP -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, push, set, get, remove, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, push, set, get, remove, update, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { 
+            getAuth, 
+            signInWithEmailAndPassword, 
+            createUserWithEmailAndPassword, 
+            GoogleAuthProvider, 
+            signInWithPopup,
+            RecaptchaVerifier,
+            signInWithPhoneNumber,
+            updateProfile,
+            signOut
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-        // UPDATED CONFIG WITH YOUR URL
+        // *** FIREBASE CONFIGURATION (Project 60324) ***
         const firebaseConfig = {
-            apiKey: "AIzaSyAsCBOY_KRxaQVeEjjkMG8mryvRVw-i00M",
-            authDomain: "streetology-244f5.firebaseapp.com",
-            databaseURL: "https://streetology-244f5-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "streetology-244f5",
-            storageBucket: "streetology-244f5.firebasestorage.app",
-            messagingSenderId: "47093210951",
-            appId: "1:47093210951:web:94dffd8e3ca048271bb662"
+            apiKey: "AIzaSyADMVJ_xjZsIrdoGTqb8TgkzHJhvCadRSI",
+            authDomain: "streetology-60324.firebaseapp.com",
+            databaseURL: "https://streetology-60324-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "streetology-60324",
+            storageBucket: "streetology-60324.firebasestorage.app",
+            messagingSenderId: "304726277276",
+            appId: "1:304726277276:web:08222d18c2f8eee73ac159"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
+        const auth = getAuth(app);
+        auth.useDeviceLanguage(); 
 
-        // Expose DB to React
         window.DB = {
+            // --- CORE SETTINGS ---
+            async getSettings() {
+                try {
+                    const s = await get(ref(db, 'settings'));
+                    return s.exists() ? s.val() : { locked: false, dropTitle: "MYSTERY DROP", dropImage: "" };
+                } catch(e) { console.error(e); return { locked: false }; }
+            },
+            async updateSettings(settings) { await update(ref(db, 'settings'), settings); },
+            
+            // --- PRODUCTS ---
             async getProducts() {
                 try {
                     const s = await get(ref(db, 'products'));
@@ -88,10 +91,47 @@
             },
             async createProduct(p) {
                 const r = push(ref(db, 'products'));
-                if(!p.images || !p.images.length) p.images = ['https://via.placeholder.com/400x500?text=No+Image'];
                 await set(r, {...p, _id: r.key});
             },
+            async updateProduct(id, data) { await update(ref(db, `products/${id}`), data); },
+            async toggleStock(id, status) { await update(ref(db, `products/${id}`), { status: status === 'sold_out' ? 'active' : 'sold_out' }); },
             async deleteProduct(id) { await remove(ref(db, `products/${id}`)); },
+
+            // --- VOUCHERS ---
+            async getVouchers() {
+                try {
+                    const s = await get(ref(db, 'vouchers'));
+                    return s.exists() ? Object.entries(s.val()).map(([k, v]) => ({...v, _id: k})) : [];
+                } catch(e) { return []; }
+            },
+            async createVoucher(v) { const r = push(ref(db, 'vouchers')); await set(r, v); },
+            async deleteVoucher(id) { await remove(ref(db, `vouchers/${id}`)); },
+
+            // --- MESSAGES ---
+            async sendMessage(msg) { const r = push(ref(db, 'messages')); await set(r, { ...msg, createdAt: new Date().toLocaleString() }); },
+            async getMessages() {
+                try {
+                    const s = await get(ref(db, 'messages'));
+                    return s.exists() ? Object.entries(s.val()).map(([k, v]) => ({...v, _id: k})).reverse() : [];
+                } catch(e) { return []; }
+            },
+            async deleteMessage(id) { await remove(ref(db, `messages/${id}`)); },
+
+            // --- PUSH NOTIFICATIONS ---
+            async sendPushNotification(msg) {
+                await set(ref(db, 'broadcast'), { message: msg, timestamp: Date.now() });
+            },
+            listenToNotifications(callback) {
+                const notifRef = ref(db, 'broadcast');
+                onValue(notifRef, (snapshot) => {
+                    const data = snapshot.val();
+                    if (data && data.timestamp > Date.now() - 10000) { // Only show if recent (10s)
+                        callback(data.message);
+                    }
+                });
+            },
+
+            // --- ORDERS ---
             async createOrder(o) {
                 const r = push(ref(db, 'orders'));
                 await set(r, { ...o, _id: 'ORD-'+r.key.slice(-5).toUpperCase(), status: 'Pending', createdAt: new Date().toLocaleString() });
@@ -100,69 +140,84 @@
                 const s = await get(ref(db, 'orders'));
                 return s.exists() ? Object.entries(s.val()).map(([k, v]) => ({...v, dbKey: k})).reverse() : [];
             },
-            async updateOrderStatus(k, s) { await update(ref(db, `orders/${k}`), { status: s }); },
-            async login(ph, pw) {
-                if (ph === 'samimalik67@gmail.com' && pw === 'samimalik@admin') return { role: 'admin', name: 'Sami Malik' };
-                const s = await get(ref(db, 'users'));
-                if (s.exists()) {
-                    const u = Object.values(s.val()).find(x => x.phone === ph && x.password === pw);
-                    if (u) return u;
-                }
-                throw "Invalid Credentials";
+            async getUserOrders(phone) {
+                const s = await get(ref(db, 'orders'));
+                if(!s.exists()) return [];
+                return Object.values(s.val()).filter(o => o.shipping.phone === phone).reverse();
             },
-            async register(n, ph, pw) {
-                const s = await get(ref(db, 'users'));
-                if (s.exists() && Object.values(s.val()).find(u => u.phone === ph)) throw "Phone Registered";
-                const r = push(ref(db, 'users'));
-                const u = { name: n, phone: ph, password: pw, role: 'user' };
-                await set(r, u); return u;
-            }
+            async updateOrderStatus(k, s) { await update(ref(db, `orders/${k}`), { status: s }); },
+            
+            // --- AUTH METHODS (Firebase v9) ---
+            async _handleUser(firebaseUser, name = null) {
+                const uid = firebaseUser.uid;
+                const email = firebaseUser.email ? firebaseUser.email.toLowerCase() : '';
+                const phone = firebaseUser.phoneNumber || '';
+                const role = (email === 'samimalik67@gmail.com') ? 'admin' : 'user';
+                const userRef = ref(db, 'users/' + uid);
+                const snap = await get(userRef);
+                if (snap.exists()) {
+                    return { ...snap.val(), _id: uid };
+                } else {
+                    const newUser = { name: name || firebaseUser.displayName || 'User', email: email, phone: phone, role: role, _id: uid, createdAt: new Date().toISOString() };
+                    await set(userRef, newUser);
+                    return newUser;
+                }
+            },
+            async loginEmail(email, pw) { const userCredential = await signInWithEmailAndPassword(auth, email, pw); return await this._handleUser(userCredential.user); },
+            async registerEmail(n, email, pw) { const userCredential = await createUserWithEmailAndPassword(auth, email, pw); await updateProfile(userCredential.user, { displayName: n }); return await this._handleUser(userCredential.user, n); },
+            async loginGoogle() { const provider = new GoogleAuthProvider(); const userCredential = await signInWithPopup(auth, provider); return await this._handleUser(userCredential.user); },
+            setupRecaptcha() { if(!window.recaptchaVerifier) { window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', { 'size': 'invisible', 'callback': () => {} }); } },
+            async sendOTP(phoneNumber) { this.setupRecaptcha(); const appVerifier = window.recaptchaVerifier; return await signInWithPhoneNumber(auth, phoneNumber, appVerifier); },
+            async verifyOTP(confirmationResult, otp) { const result = await confirmationResult.confirm(otp); return await this._handleUser(result.user); }
         };
         window.dispatchEvent(new Event('db-ready'));
     </script>
 </head>
 <body>
-
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useContext, createContext } = React;
         const { motion, AnimatePresence } = window.Motion;
 
-        // ICONS
         const Icon = ({ name, size = 20, className, onClick }) => {
             const icons = {
                 ShoppingBag: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>,
                 User: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
                 X: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>,
-                Trash2: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>,
+                Bell: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>,
+                Google: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .533 5.333.533 12S5.867 24 12.48 24c3.44 0 6.053-1.133 8.2-3.293 2.187-2.187 2.853-5.36 2.853-7.92 0-.787-.067-1.48-.187-1.867H12.48z"/></svg>,
+                Phone: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>,
                 ArrowLeft: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>,
                 Menu: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>,
-                Package: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22v-9"/></svg>,
+                Trash2: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>,
+                Box: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22v-9"/></svg>,
                 CheckCircle: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>,
-                Upload: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                Upload: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>,
+                Edit: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>,
+                Ticket: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/></svg>,
+                Mail: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>,
+                Package: <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22v-9"/></svg>
             };
             return icons[name] || null;
         };
 
-        // CONTEXTS
         const AuthCtx = createContext();
         const CartCtx = createContext();
+        const SettingsCtx = createContext();
 
         const AuthProvider = ({children}) => {
-            const [user, setUser] = useState(JSON.parse(localStorage.getItem('street_user')));
-            const login = async (id, pw) => {
-                if(!window.DB) return alert('Connecting...');
-                try { const u = await window.DB.login(id, pw); setUser(u); localStorage.setItem('street_user', JSON.stringify(u)); return u; } 
-                catch(e) { alert(e); return null; }
-            };
-            const register = async (n, ph, pw) => {
-                if(!window.DB) return alert('Connecting...');
-                try { const u = await window.DB.register(n, ph, pw); setUser(u); localStorage.setItem('street_user', JSON.stringify(u)); return u; }
-                catch(e) { alert(e); return null; }
-            };
+            const [user, setUser] = useState(() => {
+                const saved = localStorage.getItem('street_user');
+                return saved && saved !== "undefined" ? JSON.parse(saved) : null;
+            });
+            const loginEmail = async (email, pw) => { try { const u = await window.DB.loginEmail(email, pw); setUser(u); localStorage.setItem('street_user', JSON.stringify(u)); return u; } catch(e) { throw e; } };
+            const registerEmail = async (n, email, pw) => { try { const u = await window.DB.registerEmail(n, email, pw); setUser(u); localStorage.setItem('street_user', JSON.stringify(u)); return u; } catch(e) { throw e; } };
+            const loginGoogle = async () => { const u = await window.DB.loginGoogle(); setUser(u); localStorage.setItem('street_user', JSON.stringify(u)); return u; };
+            const sendOTP = async (phone) => { return await window.DB.sendOTP(phone); };
+            const verifyOTP = async (confirmResult, otp) => { const u = await window.DB.verifyOTP(confirmResult, otp); setUser(u); localStorage.setItem('street_user', JSON.stringify(u)); return u; };
             const logout = () => { setUser(null); localStorage.removeItem('street_user'); window.location.hash='#home'; };
-            return <AuthCtx.Provider value={{user, login, register, logout}}>{children}</AuthCtx.Provider>;
+            return <AuthCtx.Provider value={{user, loginEmail, registerEmail, loginGoogle, sendOTP, verifyOTP, logout}}>{children}</AuthCtx.Provider>;
         };
 
         const CartProvider = ({children}) => {
@@ -170,47 +225,86 @@
             const [open, setOpen] = useState(false);
             const add = (p, s) => { setCart(prev => {
                 const ex = prev.find(i => i._id === p._id && i.size === s);
-                return ex ? prev.map(i => i===ex ? {...i, qty:i.qty+1}:i) : [...prev, {...p, size:s, qty:1}];
+                const finalPrice = p.salePrice && p.salePrice > 0 ? p.salePrice : p.price;
+                return ex ? prev.map(i => i===ex ? {...i, qty:i.qty+1}:i) : [...prev, {...p, price: finalPrice, size:s, qty:1}];
             }); setOpen(true); };
             const remove = (id, s) => setCart(p => p.filter(i => !(i._id === id && i.size === s)));
             const total = cart.reduce((a, b) => a + (b.price * b.qty), 0);
             return <CartCtx.Provider value={{cart, open, setOpen, add, remove, total, clear: ()=>setCart([])}}>{children}</CartCtx.Provider>;
         };
 
-        // COMPONENTS
+        const SettingsProvider = ({children}) => {
+            const [settings, setSettings] = useState(() => {
+                const cached = localStorage.getItem('street_settings');
+                return cached ? JSON.parse(cached) : null;
+            });
+            useEffect(() => {
+                const f = async () => { if (window.DB) { const s = await window.DB.getSettings(); setSettings(s); localStorage.setItem('street_settings', JSON.stringify(s)); } };
+                f(); window.addEventListener('db-ready', f); return ()=>window.removeEventListener('db-ready', f);
+            }, []);
+            return <SettingsCtx.Provider value={{
+                settings: settings || { locked: false, dropTitle: "", dropImage: "" }, 
+                isLoading: settings === null, 
+                updateSettings: (s) => { setSettings(s); localStorage.setItem('street_settings', JSON.stringify(s)); window.DB.updateSettings(s); }
+            }}>{children}</SettingsCtx.Provider>
+        };
+
+        const DoorOverlay = ({ show }) => {
+            return (
+                <AnimatePresence>
+                    {show && (
+                        <div className="fixed inset-0 z-[100] flex pointer-events-none">
+                            <motion.div initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }} className="w-1/2 h-full bg-[#0a0a0a] border-r border-gray-800 flex items-center justify-end pr-4">
+                                <div className="h-12 w-1 bg-gray-800/50 rounded-full"></div>
+                            </motion.div>
+                            <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }} className="w-1/2 h-full bg-[#0a0a0a] border-l border-gray-800 flex items-center justify-start pl-4">
+                                <div className="h-12 w-1 bg-gray-800/50 rounded-full"></div>
+                            </motion.div>
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ delay: 0.3, duration: 0.3 }} className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <span className="text-white/90 font-serif tracking-[0.2em] md:tracking-[0.4em] text-sm md:text-xl text-center px-4 uppercase font-medium">ENTER THE WORLD OF STREETOLOGY</span>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
+            );
+        };
+
         const Navbar = () => {
             const { cart, setOpen } = useContext(CartCtx);
             const { user, logout } = useContext(AuthCtx);
+            const { settings } = useContext(SettingsCtx);
             const [menu, setMenu] = useState(false);
+            if(settings.locked) return null;
             return (
-                <nav className="fixed w-full top-0 z-50 glass-nav h-16 flex items-center justify-between px-6 shadow-2xl">
+                <nav className="fixed w-full top-0 z-50 glass-nav h-16 flex items-center justify-between px-4 md:px-6">
                     <div className="flex items-center gap-4">
                         <button onClick={()=>setMenu(true)} className="md:hidden text-white"><Icon name="Menu"/></button>
-                        <a href="#home" className="text-2xl font-black italic tracking-tighter text-white neon-text">STREETOLOGY</a>
+                        <a href="#home" className="text-lg md:text-xl font-bold tracking-tighter text-white">STREETOLOGY</a>
                     </div>
-                    <div className="hidden md:flex gap-8 text-xs font-bold text-gray-400 tracking-widest">
-                        {['HOME','SHOP','ABOUT','CONTACT'].map(L => <a key={L} href={`#${L.toLowerCase()}`} className="hover:text-brand-accent transition duration-300">{L}</a>)}
+                    <div className="hidden md:flex gap-8 text-[10px] font-bold text-gray-400 tracking-[0.2em]">
+                        {['HOME','SHOP','ABOUT','CONTACT'].map(L => <a key={L} href={`#${L.toLowerCase()}`} className="hover:text-brand-accent transition">{L}</a>)}
                     </div>
-                    <div className="flex gap-5 items-center text-white">
+                    <div className="flex gap-4 md:gap-5 items-center text-white">
                         {user ? (
-                            <div className="hidden md:flex items-center gap-3">
-                                {user.role === 'admin' && <span className="text-[10px] bg-brand-accent text-black px-2 py-0.5 font-bold rounded">ADMIN</span>}
-                                <button onClick={logout} className="text-xs font-bold hover:text-brand-accent">LOGOUT</button>
-                            </div>
-                        ) : <a href="#auth" className="hidden md:block"><Icon name="User"/></a>}
+                            <a href={user.role === 'admin' ? '#admin' : '#account'} className="flex items-center gap-2">
+                                <span className="hidden md:block text-[10px] font-bold tracking-widest">{user.role === 'admin' ? 'ADMIN' : 'MY ACCOUNT'}</span>
+                                <Icon name="User" size={18}/>
+                            </a>
+                        ) : <a href="#auth"><Icon name="User" size={18}/></a>}
                         <div className="relative cursor-pointer" onClick={()=>setOpen(true)}>
-                            <Icon name="ShoppingBag"/>
-                            {cart.length > 0 && <span className="absolute -top-2 -right-2 bg-brand-accent text-black text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">{cart.length}</span>}
+                            <Icon name="ShoppingBag" size={18}/>
+                            {cart.length > 0 && <span className="absolute -top-2 -right-2 bg-brand-accent text-black text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-bold">{cart.length}</span>}
                         </div>
                     </div>
                     <AnimatePresence>
                         {menu && (
                             <motion.div initial={{x:'-100%'}} animate={{x:0}} exit={{x:'-100%'}} className="fixed inset-0 bg-black z-50 flex flex-col p-8 md:hidden">
-                                <div className="flex justify-between mb-10"><span className="text-2xl font-black italic">MENU</span><button onClick={()=>setMenu(false)}><Icon name="X"/></button></div>
-                                <div className="flex flex-col gap-6 text-2xl font-bold text-gray-400">
+                                <div className="flex justify-between mb-10 text-xl font-bold italic">MENU<button onClick={()=>setMenu(false)}><Icon name="X"/></button></div>
+                                <div className="flex flex-col gap-6 text-2xl font-bold text-gray-500 uppercase">
                                     {['HOME','SHOP','ABOUT','CONTACT'].map(L => <a key={L} href={`#${L.toLowerCase()}`} onClick={()=>setMenu(false)}>{L}</a>)}
                                     <div className="h-px bg-gray-800 my-4"></div>
-                                    {user ? <button onClick={()=>{logout();setMenu(false)}} className="text-left text-brand-accent">LOGOUT</button> : <a href="#auth" onClick={()=>setMenu(false)}>LOGIN</a>}
+                                    {user ? <a href="#account" onClick={()=>setMenu(false)}>MY ACCOUNT</a> : <a href="#auth" onClick={()=>setMenu(false)}>LOGIN</a>}
+                                    {user && <button onClick={()=>{logout();setMenu(false)}} className="text-left text-brand-accent">LOGOUT</button>}
                                 </div>
                             </motion.div>
                         )}
@@ -219,16 +313,38 @@
             );
         };
 
-        const Hero = () => {
-            const { user } = useContext(AuthCtx);
+        const Hero = ({ onEnter }) => {
+            const { settings, isLoading } = useContext(SettingsCtx);
+            if (isLoading) return <div className="h-screen bg-black w-full flex items-center justify-center"></div>;
+            if(settings.locked) {
+                return (
+                    <div className="h-screen relative flex flex-col items-center justify-center bg-black overflow-hidden px-4 text-center">
+                        {settings.dropImage && (
+                            <>
+                                <img src={settings.dropImage} className="absolute inset-0 w-full h-full object-cover opacity-20 blur-2xl grayscale"/>
+                                <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black"></div>
+                                <motion.img initial={{scale:0.9, opacity:0}} animate={{scale:1, opacity:1}} src={settings.dropImage} className="z-10 max-w-full max-h-[50vh] md:max-h-[60vh] object-contain shadow-2xl mb-8 border border-white/5"/>
+                            </>
+                        )}
+                        <div className="z-20 w-full">
+                            <p className="text-brand-accent font-mono text-[10px] tracking-[0.5em] mb-4 uppercase">Upcoming Drop</p>
+                            <h1 className="text-3xl sm:text-4xl md:text-7xl font-black text-white leading-none mb-6 uppercase tracking-tighter break-words">{settings.dropTitle || "RESTRICTED ACCESS"}</h1>
+                            <div className="flex flex-col items-center gap-4">
+                                <span className="bg-white text-black px-8 py-2 font-black tracking-widest text-[10px]">LOCKED</span>
+                                <a href="#auth" className="text-[10px] text-gray-600 hover:text-white mt-4 flex items-center gap-2 uppercase font-bold tracking-widest"><Icon name="User" size={12}/> Admin Login</a>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
             return (
                 <div className="h-screen relative flex items-center justify-center bg-black overflow-hidden">
-                    <img src="https://images.unsplash.com/photo-1523398002811-999ca8dec234?auto=format&fit=crop&w=1920&q=80" className="absolute inset-0 w-full h-full object-cover opacity-40 filter grayscale contrast-125"/>
+                    <img src="https://images.unsplash.com/photo-1523398002811-999ca8dec234?auto=format&fit=crop&w=1920&q=80" className="absolute inset-0 w-full h-full object-cover opacity-40 grayscale contrast-125"/>
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/60"></div>
-                    <div className="z-10 text-center px-4">
-                        <motion.h1 initial={{y:50, opacity:0}} animate={{y:0, opacity:1}} className="text-6xl md:text-9xl font-black italic text-white mb-2 neon-text">STREETOLOGY</motion.h1>
-                        <p className="text-brand-accent tracking-[0.5em] font-mono mb-8 text-sm md:text-base">EST. 2025 // FUTURE WEAR</p>
-                        <button onClick={() => window.location.hash = user ? '#shop' : '#auth'} className="bg-white text-black px-10 py-4 font-black tracking-widest hover:bg-brand-accent hover:text-white transition duration-300 clip-path-slant">ENTER STORE</button>
+                    <div className="z-10 text-center px-4 w-full">
+                        <motion.h1 initial={{y:50, opacity:0}} animate={{y:0, opacity:1}} className="text-5xl sm:text-6xl md:text-9xl font-bold text-white tracking-tighter leading-none mb-4">STREETOLOGY</motion.h1>
+                        <p className="text-gray-400 tracking-[0.3em] md:tracking-[0.5em] font-mono mb-12 text-[10px] md:text-xs uppercase">Future Wear // Est. 2025</p>
+                        <button onClick={onEnter} className="bg-white text-black px-8 md:px-12 py-3 md:py-4 font-black tracking-widest hover:bg-brand-accent hover:text-white transition uppercase text-xs md:text-sm">Enter Store</button>
                     </div>
                 </div>
             );
@@ -236,28 +352,55 @@
 
         const Shop = ({ setCurr }) => {
             const [list, setList] = useState([]);
-            useEffect(() => { const f = async () => { if(window.DB) setList(await window.DB.getProducts()); }; f(); window.addEventListener('db-ready', f); return ()=>window.removeEventListener('db-ready', f); }, []);
-            
+            const [loading, setLoading] = useState(true);
+            useEffect(() => {
+                window.scrollTo(0, 0); 
+                const f = async () => { if (window.DB) { setList(await window.DB.getProducts()); setLoading(false); } };
+                f(); if(!window.DB) window.addEventListener('db-ready', f);
+                return ()=>window.removeEventListener('db-ready', f);
+            }, []);
             return (
-                <div className="pt-24 px-4 md:px-12 pb-20 min-h-screen">
-                    <div className="flex justify-between items-end mb-12 border-b border-gray-800 pb-4">
-                        <h2 className="text-4xl font-black italic">COLLECTION</h2>
-                        <span className="text-brand-accent font-mono text-xs">FALL / WINTER 2025</span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div className="pt-32 md:pt-24 px-3 md:px-12 pb-20 min-h-screen relative z-10">
+                    <h2 className="text-3xl md:text-4xl font-bold tracking-tighter mb-8 md:mb-12 border-b border-gray-800 pb-4 italic uppercase">Collection</h2>
+                    
+                    {loading && list.length === 0 && (
+                        <div className="text-center py-20">
+                            <div className="text-brand-accent animate-pulse font-mono tracking-widest text-xs">LOADING COLLECTION...</div>
+                        </div>
+                    )}
+                    
+                    {!loading && list.length === 0 && (
+                         <div className="text-center py-20">
+                            <div className="text-gray-600 font-mono tracking-widest text-xs">NO PRODUCTS FOUND</div>
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-8">
                         {list.map(p => (
-                            <motion.div whileHover={{y:-10}} key={p._id} onClick={()=>{setCurr(p); window.location.hash='#product/'+p._id}} className="group cursor-pointer glass-panel p-3">
-                                <div className="h-[400px] overflow-hidden relative mb-4 bg-black">
-                                    <img src={p.images[0]} className="w-full h-full object-cover transition duration-700 group-hover:scale-110 opacity-90 group-hover:opacity-100"/>
+                            <div key={p._id} onClick={()=>{if(p.status!=='sold_out'){setCurr(p); window.location.hash='#product/'+p._id}}} className={`glass-panel p-2 md:p-3 group cursor-pointer ${p.status==='sold_out'?'opacity-50':''}`}>
+                                <div className="h-[220px] md:h-[400px] overflow-hidden relative mb-2 md:mb-4 bg-black">
+                                    <img src={p.images[0]} className="w-full h-full object-cover group-hover:scale-105 transition duration-500 opacity-80 group-hover:opacity-100"/>
+                                    {p.status==='sold_out' && <div className="absolute inset-0 flex items-center justify-center bg-black/60 font-bold tracking-widest text-xs">SOLD OUT</div>}
+                                    {p.isPreorder && p.status!=='sold_out' && <div className="absolute top-2 left-2 bg-yellow-500 text-black px-2 py-1 text-[9px] font-black tracking-widest">PRE-ORDER</div>}
+                                    {p.salePrice && p.salePrice > 0 && p.status!=='sold_out' && <div className="absolute top-2 right-2 bg-brand-accent text-black px-1.5 py-0.5 md:px-2 md:py-1 text-[8px] md:text-[9px] font-black tracking-widest">SALE</div>}
                                 </div>
-                                <div className="flex justify-between items-start px-1">
+                                <div className="flex flex-col md:flex-row justify-between items-start px-1">
                                     <div>
-                                        <h3 className="text-lg font-bold leading-none">{p.name}</h3>
-                                        <p className="text-[10px] text-gray-500 uppercase mt-1 tracking-widest">{p.category}</p>
+                                        <h3 className="font-bold text-xs md:text-lg truncate w-full">{p.name}</h3>
+                                        <p className="text-[8px] md:text-[10px] text-gray-500 uppercase tracking-widest">{p.category}</p>
                                     </div>
-                                    <span className="text-brand-accent font-mono text-lg">₹{p.price}</span>
+                                    <div className="text-left md:text-right mt-1 md:mt-0">
+                                        {p.salePrice && p.salePrice > 0 ? (
+                                            <>
+                                                <div className="text-gray-500 strike-price text-[10px] md:text-xs font-mono">₹{p.price}</div>
+                                                <div className="text-brand-accent font-mono text-sm md:text-lg font-bold">₹{p.salePrice}</div>
+                                            </>
+                                        ) : (
+                                            <span className="text-brand-accent font-mono text-sm md:text-lg font-bold">₹{p.price}</span>
+                                        )}
+                                    </div>
                                 </div>
-                            </motion.div>
+                            </div>
                         ))}
                     </div>
                 </div>
@@ -268,113 +411,414 @@
             const { add } = useContext(CartCtx);
             const [size, setSize] = useState('');
             const [idx, setIdx] = useState(0);
-            if(!p) return <div className="h-screen flex items-center justify-center text-brand-accent font-mono">LOADING...</div>;
+            useEffect(() => { window.scrollTo(0, 0); }, []);
+            if(!p) return null;
+            
+            const getStock = (s) => p.sizes ? parseInt(p.sizes[s] || 0) : 999;
+
             return (
-                <div className="pt-24 px-4 md:px-12 pb-20 min-h-screen">
-                    <a href="#shop" className="flex items-center gap-2 text-xs font-bold text-gray-500 mb-8 hover:text-white"><Icon name="ArrowLeft" size={16}/> BACK</a>
-                    <div className="grid md:grid-cols-2 gap-12">
+                <div className="pt-28 md:pt-24 px-4 md:px-12 pb-20 min-h-screen">
+                    <button onClick={()=>window.history.back()} className="flex items-center gap-2 text-xs font-bold text-gray-500 mb-6 md:mb-8 uppercase tracking-widest"><Icon name="ArrowLeft" size={14}/> Back</button>
+                    <div className="grid md:grid-cols-2 gap-8 md:gap-12">
                         <div className="space-y-4">
-                            <motion.img key={idx} initial={{opacity:0}} animate={{opacity:1}} src={p.images[idx]} className="w-full h-[500px] object-cover bg-black border border-gray-800"/>
-                            <div className="flex gap-2 overflow-x-auto pb-2">{p.images.map((s,i)=><img key={i} src={s} onClick={()=>setIdx(i)} className={`w-20 h-24 object-cover border ${idx===i?'border-brand-accent':'border-transparent'} cursor-pointer`}/>)}</div>
+                            <img src={p.images[idx]} className="w-full h-[350px] md:h-[500px] object-cover bg-black border border-gray-800 shadow-2xl"/>
+                            <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">{p.images.map((s,i)=><img key={i} src={s} onClick={()=>setIdx(i)} className={`w-16 h-20 md:w-20 md:h-24 object-cover border ${idx===i?'border-brand-accent':'border-transparent'} cursor-pointer flex-shrink-0`}/>)}</div>
                         </div>
                         <div className="flex flex-col justify-center">
-                            <h1 className="text-4xl md:text-6xl font-black italic mb-2 leading-tight">{p.name}</h1>
-                            <p className="text-2xl text-brand-accent mb-6 font-mono">₹{p.price}</p>
-                            <p className="text-gray-400 mb-8 leading-relaxed max-w-md">{p.description}</p>
-                            <div className="mb-8">
-                                <p className="font-bold mb-3 text-xs text-gray-500 tracking-widest">SIZE</p>
-                                <div className="flex gap-3">{['S','M','L','XL'].map(s=><button key={s} onClick={()=>setSize(s)} className={`w-12 h-12 border flex items-center justify-center font-bold transition ${size===s?'bg-white text-black':'border-gray-800 text-gray-500 hover:border-white'}`}>{s}</button>)}</div>
+                            <h1 className="text-3xl md:text-6xl font-black italic mb-2 uppercase leading-none tracking-tighter break-words">{p.name}</h1>
+                            
+                            <div className="mb-6">
+                                {p.salePrice && p.salePrice > 0 ? (
+                                    <div className="flex items-center gap-4">
+                                        <span className="text-2xl md:text-3xl text-brand-accent font-mono font-bold">₹{p.salePrice}</span>
+                                        <span className="text-lg text-gray-500 strike-price font-mono">₹{p.price}</span>
+                                        <span className="bg-brand-accent/20 text-brand-accent px-2 py-1 text-[10px] font-bold uppercase tracking-widest">Price Cut</span>
+                                    </div>
+                                ) : (
+                                    <p className="text-xl md:text-2xl text-brand-accent font-mono font-bold">₹{p.price}</p>
+                                )}
                             </div>
-                            <button onClick={()=>size?add(p,size):alert('Select Size')} className="w-full bg-brand-accent py-4 font-bold text-black tracking-widest hover:bg-white transition">ADD TO CART</button>
+
+                            <p className="text-gray-400 mb-8 text-sm leading-relaxed max-w-md">{p.description}</p>
+                            <div className="mb-8">
+                                <p className="font-bold mb-3 text-[10px] text-gray-500 tracking-widest uppercase">Select Size</p>
+                                <div className="flex gap-3 flex-wrap">
+                                    {['S','M','L','XL'].map(s => {
+                                        const qty = getStock(s);
+                                        if (qty <= 0) return null;
+                                        return (
+                                            <button key={s} onClick={()=>setSize(s)} className={`w-12 h-12 border flex items-center justify-center font-bold text-xs transition ${size===s?'bg-white text-black':'border-gray-800 text-gray-500 hover:border-white'}`}>
+                                                {s}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                {['S','M','L','XL'].every(s => getStock(s) <= 0) && (
+                                    <p className="text-red-500 font-bold uppercase text-xs tracking-widest mt-2">Currently Out of Stock</p>
+                                )}
+                            </div>
+                            <button onClick={()=>size?add(p,size):alert('Select Size')} className={`w-full py-5 font-black text-black tracking-[0.2em] transition uppercase text-xs disabled:opacity-50 disabled:cursor-not-allowed ${p.isPreorder ? 'bg-yellow-500 hover:bg-yellow-400' : 'bg-brand-accent hover:bg-white'}`} disabled={['S','M','L','XL'].every(s => getStock(s) <= 0)}>
+                                {p.isPreorder ? 'PRE-BOOK NOW' : 'ADD TO BAG'}
+                            </button>
                         </div>
                     </div>
                 </div>
             );
         };
 
-        const Admin = () => {
-            const { user } = useContext(AuthCtx);
-            const [tab, setTab] = useState('orders');
-            const [data, setData] = useState({p:[], o:[]});
-            const [form, setForm] = useState({name:'', price:'', cat:'Hoodies', desc:'', imgs:[]});
+        const Account = () => {
+            const { user, logout } = useContext(AuthCtx);
+            const [orders, setOrders] = useState([]);
+            const [loading, setLoading] = useState(true);
 
-            if(!user || user.role !== 'admin') { window.location.hash = '#auth'; return null; }
+            useEffect(() => {
+                const fetchOrders = async () => {
+                    if (user && window.DB) {
+                        const data = await window.DB.getUserOrders(user.phone);
+                        setOrders(data);
+                        setLoading(false);
+                    }
+                };
+                fetchOrders();
+            }, [user]);
 
-            const refresh = async () => { if(window.DB) { setData({p: await window.DB.getProducts(), o: await window.DB.getOrders()}); }};
-            useEffect(() => { refresh(); }, []);
-
-            const handleFiles = (e) => {
-                const files = Array.from(e.target.files);
-                Promise.all(files.map(f => new Promise(r => { const rd = new FileReader(); rd.onload=()=>r(rd.result); rd.readAsDataURL(f); })))
-                .then(imgs => setForm(p => ({...p, imgs: [...p.imgs, ...imgs]})));
-            };
-
-            const addProd = async (e) => {
-                e.preventDefault();
-                await window.DB.createProduct({name:form.name, price:Number(form.price), category:form.cat, images:form.imgs, description:form.desc});
-                setForm({name:'', price:'', cat:'Hoodies', desc:'', imgs:[]}); refresh(); alert('Published');
-            };
+            if (!user) { window.location.hash = '#auth'; return null; }
 
             return (
-                <div className="pt-24 px-4 md:px-12 pb-20 min-h-screen bg-black">
-                    <div className="flex justify-between items-center mb-8 border-b border-gray-800 pb-4">
-                        <h1 className="text-3xl font-black italic text-brand-accent">ADMIN</h1>
-                        <span className="text-xs font-mono text-gray-500">SECURE CONSOLE</span>
+                <div className="pt-20 md:pt-24 px-4 md:px-12 pb-20 min-h-screen max-w-4xl mx-auto">
+                    <div className="flex justify-between items-end mb-8 md:mb-10 border-b border-gray-800 pb-6">
+                        <div>
+                            <h1 className="text-3xl md:text-4xl font-black italic uppercase leading-none mb-2 tracking-tighter">My Account</h1>
+                            <p className="text-[10px] md:text-xs text-gray-500 font-mono tracking-widest uppercase break-all">{user.name} | {user.phone}</p>
+                        </div>
+                        <button onClick={logout} className="text-[10px] font-black tracking-widest text-brand-accent border border-brand-accent px-4 py-2 hover:bg-brand-accent hover:text-black transition">LOGOUT</button>
                     </div>
-                    <div className="flex gap-4 mb-8">
-                        {['orders','add','manage'].map(t => <button key={t} onClick={()=>setTab(t)} className={`text-sm font-bold uppercase ${tab===t?'text-white underline decoration-brand-accent':'text-gray-600'}`}>{t}</button>)}
+                    <h2 className="text-lg md:text-xl font-bold mb-6 italic uppercase tracking-tighter">Order Tracking</h2>
+                    {loading ? <div className="text-center text-gray-500 animate-pulse font-mono text-xs">FETCHING DATA...</div> : (
+                        <div className="space-y-6">
+                            {orders.length === 0 ? (
+                                <div className="glass-panel p-8 md:p-16 text-center text-gray-500 uppercase text-[10px] tracking-[0.3em]">No orders found yet</div>
+                            ) : (
+                                orders.map((o, idx) => (
+                                    <div key={idx} className="glass-panel p-4 md:p-6 border-l-2 border-brand-accent">
+                                        <div className="flex flex-col md:flex-row md:justify-between md:items-start mb-6 gap-2 md:gap-0">
+                                            <div>
+                                                <span className="text-brand-accent font-mono font-bold text-base md:text-lg">{o._id}</span>
+                                                <p className="text-[10px] text-gray-500 uppercase font-bold mt-1">{o.createdAt}</p>
+                                            </div>
+                                            <div className={`self-start px-4 py-1.5 text-[10px] font-black rounded uppercase tracking-widest ${
+                                                o.status === 'Delivered' ? 'bg-green-500 text-black' : 
+                                                o.status === 'Shipped' ? 'bg-blue-500 text-black' : 'bg-brand-accent text-black'
+                                            }`}>
+                                                {o.status}
+                                            </div>
+                                        </div>
+                                        <div className="grid md:grid-cols-2 gap-6 md:gap-8 text-sm">
+                                            <div>
+                                                <p className="text-[10px] text-gray-500 font-black uppercase mb-3 tracking-widest italic">Ordered Items</p>
+                                                {o.items.map((item, i) => (
+                                                    <div key={i} className="flex justify-between text-xs mb-2 font-bold uppercase tracking-tighter">
+                                                        <span className="truncate pr-2">{item.name} <span className="text-gray-500 italic">({item.size})</span></span>
+                                                        <span>x{item.qty}</span>
+                                                    </div>
+                                                ))}
+                                                <div className="border-t border-gray-800 mt-4 pt-4 flex justify-between font-black text-white">
+                                                    <span>TOTAL AMOUNT</span>
+                                                    <span className="text-brand-accent font-mono">₹{o.total}</span>
+                                                </div>
+                                            </div>
+                                            <div className="border-t md:border-t-0 md:border-l border-gray-800 pt-6 md:pt-0 md:pl-8">
+                                                <p className="text-[10px] text-gray-500 font-black uppercase mb-2 tracking-widest italic">Shipping To</p>
+                                                <p className="text-xs text-gray-300 font-bold uppercase tracking-tight leading-relaxed">
+                                                    {o.shipping.name}<br/>
+                                                    {o.shipping.address}<br/>
+                                                    {o.shipping.city} - {o.shipping.zip}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="mt-10 flex items-center justify-between relative px-2">
+                                            <div className="absolute h-0.5 bg-gray-800 w-full top-1.5 -z-10"></div>
+                                            <div className="flex flex-col items-center gap-3">
+                                                <div className={`w-3.5 h-3.5 rounded-full ${['Pending','Shipped','Delivered'].includes(o.status) ? 'bg-brand-accent ring-4 ring-brand-accent/20' : 'bg-gray-800'}`}></div>
+                                                <span className="text-[8px] font-black uppercase tracking-widest">Confirmed</span>
+                                            </div>
+                                            <div className="flex flex-col items-center gap-3">
+                                                <div className={`w-3.5 h-3.5 rounded-full ${['Shipped','Delivered'].includes(o.status) ? 'bg-brand-accent ring-4 ring-brand-accent/20' : 'bg-gray-800'}`}></div>
+                                                <span className="text-[8px] font-black uppercase tracking-widest">On Way</span>
+                                            </div>
+                                            <div className="flex flex-col items-center gap-3">
+                                                <div className={`w-3.5 h-3.5 rounded-full ${o.status === 'Delivered' ? 'bg-green-500 ring-4 ring-green-500/20' : 'bg-gray-800'}`}></div>
+                                                <span className="text-[8px] font-black uppercase tracking-widest">Arrived</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const Admin = () => {
+            const { user } = useContext(AuthCtx);
+            const { settings, updateSettings } = useContext(SettingsCtx);
+            const [tab, setTab] = useState('orders');
+            const [data, setData] = useState({p:[], o:[], v:[], m:[]});
+            
+            const [form, setForm] = useState({ name:'', price:'', salePrice: '', cat:'Hoodies', desc:'', imgs:[], sizes: { S: 0, M: 0, L: 0, XL: 0 }, isPreorder: false });
+            const [voucherForm, setVoucherForm] = useState({ code: '', amount: '' });
+            const [notifyMsg, setNotifyMsg] = useState('');
+            const [dropForm, setDropForm] = useState({ dropTitle: settings.dropTitle, dropImage: settings.dropImage });
+            
+            const [editingProduct, setEditingProduct] = useState(null);
+
+            if(!user || user.role !== 'admin') return <Auth />;
+            
+            const refresh = async () => { 
+                if(window.DB) { 
+                    setData({
+                        p: await window.DB.getProducts(), 
+                        o: await window.DB.getOrders(),
+                        v: await window.DB.getVouchers(),
+                        m: await window.DB.getMessages()
+                    }); 
+                }
+            };
+            useEffect(() => { refresh(); }, []);
+            
+            const addProd = async (e) => {
+                e.preventDefault();
+                await window.DB.createProduct({
+                    name: form.name, 
+                    price: Number(form.price), 
+                    salePrice: Number(form.salePrice),
+                    category: form.cat, 
+                    images: form.imgs, 
+                    description: form.desc,
+                    sizes: form.sizes,
+                    isPreorder: form.isPreorder,
+                    status: 'active'
+                });
+                setForm({name:'', price:'', salePrice: '', cat:'Hoodies', desc:'', imgs:[], sizes: { S: 0, M: 0, L: 0, XL: 0 }, isPreorder: false}); 
+                refresh(); alert('Published');
+            };
+
+            const updateProd = async (e) => {
+                e.preventDefault();
+                await window.DB.updateProduct(editingProduct._id, {
+                    name: editingProduct.name,
+                    price: Number(editingProduct.price),
+                    salePrice: Number(editingProduct.salePrice),
+                    category: editingProduct.category,
+                    description: editingProduct.description,
+                    sizes: editingProduct.sizes,
+                    isPreorder: editingProduct.isPreorder,
+                    status: editingProduct.status || 'active'
+                });
+                setEditingProduct(null);
+                refresh(); alert('Updated');
+            };
+
+            const createVoucher = async (e) => {
+                e.preventDefault();
+                await window.DB.createVoucher({
+                    code: voucherForm.code.toUpperCase(),
+                    amount: Number(voucherForm.amount)
+                });
+                setVoucherForm({ code: '', amount: '' });
+                refresh(); alert('Voucher Created');
+            };
+
+            const sendNotify = async () => {
+                if(!notifyMsg) return;
+                await window.DB.sendPushNotification(notifyMsg);
+                setNotifyMsg('');
+                alert('Notification Sent!');
+            }
+
+            return (
+                <div className="pt-20 md:pt-24 px-4 md:px-12 pb-20 min-h-screen bg-black uppercase">
+                    <div className="flex justify-between items-center mb-8 border-b border-gray-800 pb-4 font-black italic">
+                        <h1 className="text-xl md:text-2xl text-brand-accent uppercase tracking-widest">Terminal</h1>
+                        <button onClick={refresh} className="text-[10px] font-bold border border-gray-700 px-4 py-2 hover:bg-white hover:text-black">REFRESH</button>
                     </div>
+                    <div className="flex gap-6 mb-8 overflow-x-auto text-[10px] font-black tracking-widest border-b border-gray-900 pb-2 no-scrollbar">
+                        {['orders','inbox','add','manage', 'vouchers', 'notify', 'dropzone'].map(t => <button key={t} onClick={()=>setTab(t)} className={`${tab===t?'text-brand-accent border-b-2 border-brand-accent':'text-gray-600'} whitespace-nowrap`}>{t}</button>)}
+                    </div>
+                    
+                    {editingProduct && (
+                        <div className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4">
+                            <form onSubmit={updateProd} className="glass-panel p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto space-y-4 border border-brand-accent">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h2 className="text-xl font-black italic text-brand-accent">EDIT PRODUCT</h2>
+                                    <button type="button" onClick={()=>setEditingProduct(null)}><Icon name="X"/></button>
+                                </div>
+                                <input value={editingProduct.name} onChange={e=>setEditingProduct({...editingProduct, name: e.target.value})} className="w-full p-3 text-xs font-bold" placeholder="Name"/>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div><label className="text-[9px] text-gray-400">Real Price</label><input type="number" value={editingProduct.price} onChange={e=>setEditingProduct({...editingProduct, price: e.target.value})} className="w-full p-3 text-xs"/></div>
+                                    <div><label className="text-[9px] text-brand-accent">Sale Price</label><input type="number" value={editingProduct.salePrice} onChange={e=>setEditingProduct({...editingProduct, salePrice: e.target.value})} className="w-full p-3 text-xs text-brand-accent"/></div>
+                                </div>
+                                <div className="border border-gray-800 p-3">
+                                    <p className="text-[9px] font-bold mb-2 text-gray-500">STOCK (PCS)</p>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {['S','M','L','XL'].map(s => (
+                                            <div key={s}><label className="text-[8px] block text-gray-400">{s}</label><input type="number" value={editingProduct.sizes?.[s]||0} onChange={e => setEditingProduct({...editingProduct, sizes: {...(editingProduct.sizes||{}), [s]: e.target.value}})} className="w-full p-2 text-center text-xs font-bold" /></div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="flex gap-4 items-center">
+                                    <label className="flex items-center gap-2 text-[10px] font-bold text-yellow-500 cursor-pointer">
+                                        <input type="checkbox" checked={editingProduct.isPreorder} onChange={e=>setEditingProduct({...editingProduct, isPreorder: e.target.checked})}/>
+                                        IS PRE-ORDER ITEM?
+                                    </label>
+                                    <select value={editingProduct.status || 'active'} onChange={e=>setEditingProduct({...editingProduct, status: e.target.value})} className="p-2 text-xs bg-black border border-gray-800 ml-auto">
+                                        <option value="active">Active</option>
+                                        <option value="sold_out">Sold Out</option>
+                                    </select>
+                                </div>
+                                <button className="w-full bg-white text-black font-black py-4 text-xs tracking-widest">UPDATE</button>
+                            </form>
+                        </div>
+                    )}
 
                     {tab === 'orders' && (
                         <div className="space-y-4">
                             {data.o.map(o => (
-                                <div key={o.dbKey} className="glass-panel p-6 flex flex-col gap-4">
-                                    <div className="flex justify-between items-center border-b border-gray-800 pb-2">
-                                        <div>
-                                            <span className="text-brand-accent font-bold text-lg">{o._id}</span>
-                                            <div className="text-[10px] text-gray-500">{o.createdAt}</div>
-                                        </div>
-                                        <span className={`text-[10px] px-2 py-1 font-bold rounded ${o.status==='Delivered'?'bg-green-900 text-green-300':'bg-yellow-900 text-yellow-300'}`}>{o.status.toUpperCase()}</span>
+                                <div key={o.dbKey} className="glass-panel p-4 md:p-6 border-l border-brand-accent">
+                                    <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 gap-2">
+                                        <span className="font-mono text-base md:text-lg font-bold">{o._id}</span>
+                                        <select value={o.status} onChange={async(e)=>{await window.DB.updateOrderStatus(o.dbKey, e.target.value); refresh()}} className="text-[10px] font-black bg-black border border-gray-800 p-2 uppercase w-full md:w-auto">
+                                            <option>Pending</option><option>Shipped</option><option>Delivered</option>
+                                        </select>
                                     </div>
-                                    <div className="grid md:grid-cols-2 gap-6 text-sm">
-                                        <div className="space-y-1">
-                                            <p className="text-xs text-gray-500 font-bold">CUSTOMER</p>
-                                            <p>{o.shipping.name}</p>
-                                            <p>{o.shipping.phone}</p>
-                                            <p className="text-gray-400">{o.shipping.address}, {o.shipping.city} - {o.shipping.zip}</p>
-                                            <p className="text-xs text-gray-500 mt-1">PAYMENT: <span className="text-white font-bold">{o.paymentMethod}</span></p>
+                                    <div className="grid md:grid-cols-2 gap-4 text-[10px] font-bold tracking-tight">
+                                        <div className="text-gray-400 break-words">CUSTOMER: {o.shipping.name} | {o.shipping.phone}<br/>ADDR: {o.shipping.address}, {o.shipping.city}</div>
+                                        <div className="text-left md:text-right">
+                                            {o.items.map((i,x)=><div key={x}>{i.name} ({i.size}) x{i.qty}</div>)}
+                                            <div className="text-brand-accent font-black mt-2 font-mono text-sm">
+                                                TOTAL: ₹{o.total}
+                                                {o.discount > 0 && <span className="block text-gray-500 text-[9px]">(Disc: -₹{o.discount})</span>}
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-xs text-gray-500 font-bold mb-1">ITEMS</p>
-                                            {o.items.map((i,x) => <div key={x} className="flex justify-between text-gray-300"><span>{i.name} <span className="text-xs text-gray-500">({i.size})</span></span><span>x{i.qty}</span></div>)}
-                                            <div className="border-t border-gray-800 mt-2 pt-2 flex justify-between font-bold text-brand-accent"><span>TOTAL</span><span>₹{o.total}</span></div>
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-2 justify-end pt-2">
-                                        {o.status!=='Shipped' && o.status!=='Delivered' && <button onClick={async()=>{await window.DB.updateOrderStatus(o.dbKey, 'Shipped'); refresh()}} className="text-xs bg-blue-900 text-blue-200 px-3 py-2 font-bold hover:bg-blue-800">MARK SHIPPED</button>}
-                                        {o.status!=='Delivered' && <button onClick={async()=>{await window.DB.updateOrderStatus(o.dbKey, 'Delivered'); refresh()}} className="text-xs bg-green-900 text-green-200 px-3 py-2 font-bold hover:bg-green-800">MARK DELIVERED</button>}
                                     </div>
                                 </div>
                             ))}
                         </div>
                     )}
-
+                    {tab === 'inbox' && (
+                        <div className="space-y-4">
+                            {!data.m.length && <p className="text-center text-gray-500 text-[10px] italic">NO MESSAGES</p>}
+                            {data.m.map(m => (
+                                <div key={m._id} className="glass-panel p-4 border-l-2 border-white">
+                                    <div className="flex justify-between mb-2">
+                                        <h3 className="font-bold text-sm text-brand-accent">{m.name}</h3>
+                                        <span className="text-[9px] text-gray-500">{m.createdAt}</span>
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 mb-2 font-mono">{m.email}</p>
+                                    <p className="text-xs font-medium leading-relaxed bg-white/5 p-3 rounded">{m.message}</p>
+                                    <button onClick={async()=>{if(confirm('Delete Msg?')){await window.DB.deleteMessage(m._id); refresh()}}} className="text-[9px] text-red-500 mt-2 hover:text-white font-bold tracking-widest">DELETE</button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                     {tab === 'add' && (
-                        <form onSubmit={addProd} className="max-w-xl glass-panel p-8 space-y-4">
-                            <input required placeholder="Product Name" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} className="w-full p-3"/>
+                        <form onSubmit={addProd} className="max-w-xl glass-panel p-6 md:p-8 space-y-4">
+                            <input required placeholder="Name" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} className="w-full p-4 text-[10px] font-black uppercase tracking-widest"/>
                             <div className="grid grid-cols-2 gap-4">
-                                <input required type="number" placeholder="Price" value={form.price} onChange={e=>setForm({...form,price:e.target.value})} className="p-3"/>
-                                <select value={form.cat} onChange={e=>setForm({...form,cat:e.target.value})} className="p-3"><option>Hoodies</option><option>Tees</option><option>Pants</option></select>
+                                <input required type="number" placeholder="Real Price" value={form.price} onChange={e=>setForm({...form,price:e.target.value})} className="p-4 text-[10px] font-black w-full"/>
+                                <input type="number" placeholder="Sale Price (Optional)" value={form.salePrice} onChange={e=>setForm({...form,salePrice:e.target.value})} className="p-4 text-[10px] font-black w-full text-brand-accent"/>
                             </div>
-                            <textarea required placeholder="Desc" value={form.desc} onChange={e=>setForm({...form,desc:e.target.value})} className="w-full p-3" rows="3"></textarea>
-                            <label className="block border-2 border-dashed border-gray-700 p-6 text-center cursor-pointer hover:border-brand-accent">
-                                <Icon name="Upload" className="mx-auto mb-2"/>
-                                <span className="text-xs font-bold">UPLOAD IMAGES</span>
-                                <input type="file" multiple accept="image/*" onChange={handleFiles} className="hidden" />
+                            <select value={form.cat} onChange={e=>setForm({...form,cat:e.target.value})} className="p-4 text-[10px] font-black w-full"><option>Hoodies</option><option>Tees</option><option>Pants</option></select>
+                            
+                            <div className="border border-gray-800 p-4">
+                                <p className="text-[10px] font-bold mb-2 text-gray-500 tracking-widest">STOCK PER SIZE (PCS)</p>
+                                <div className="grid grid-cols-4 gap-2">
+                                    {['S','M','L','XL'].map(s => (
+                                        <div key={s}>
+                                            <label className="text-[9px] block mb-1 text-gray-400">{s}</label>
+                                            <input type="number" value={form.sizes[s]} onChange={e => setForm({...form, sizes: {...form.sizes, [s]: e.target.value}})} className="w-full p-2 text-center font-mono font-bold text-xs" />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <label className="flex items-center gap-2 text-[10px] font-bold text-yellow-500 cursor-pointer border border-gray-800 p-3">
+                                <input type="checkbox" checked={form.isPreorder} onChange={e=>setForm({...form, isPreorder: e.target.checked})}/>
+                                IS THIS A PRE-ORDER ITEM?
                             </label>
-                            <div className="flex gap-2 flex-wrap">{form.imgs.map((s,i)=><img key={i} src={s} className="w-16 h-16 object-cover border border-gray-700"/>)}</div>
-                            <button className="w-full bg-brand-accent text-black font-bold py-3 hover:bg-white transition">PUBLISH</button>
+
+                            <textarea required placeholder="Description" value={form.desc} onChange={e=>setForm({...form,desc:e.target.value})} className="w-full p-4 text-[10px]" rows="3"></textarea>
+                            <input type="file" multiple accept="image/*" onChange={(e)=>{
+                                const files = Array.from(e.target.files);
+                                Promise.all(files.map(f => new Promise(r => { const rd = new FileReader(); rd.onload=()=>r(rd.result); rd.readAsDataURL(f); })))
+                                .then(imgs => setForm(p => ({...p, imgs: [...p.imgs, ...imgs]})));
+                            }} className="text-[10px] w-full"/>
+                            <button className="w-full bg-brand-accent text-black font-black py-5 uppercase text-[10px] tracking-widest">Publish Product</button>
                         </form>
+                    )}
+                    {tab === 'manage' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 uppercase font-bold text-[10px]">
+                            {data.p.map(p => (
+                                <div key={p._id} className={`glass-panel p-4 flex items-center gap-4 ${p.status === 'sold_out' ? 'opacity-60 border-red-900' : ''}`}>
+                                    <img src={p.images[0]} className="w-16 h-16 object-cover"/>
+                                    <div className="flex-1 min-w-0">
+                                        <h4 className="truncate">{p.name}</h4>
+                                        <div className="flex gap-2">
+                                            <p className={`font-mono mt-1 ${p.salePrice ? 'text-gray-500 strike-price' : 'text-brand-accent'}`}>₹{p.price}</p>
+                                            {p.salePrice && <p className="font-mono mt-1 text-brand-accent">₹{p.salePrice}</p>}
+                                        </div>
+                                        <p className="text-[8px] text-gray-500 mt-1">
+                                            {p.status === 'sold_out' ? <span className="text-red-500 font-black">SOLD OUT</span> : `STOCK: S:${p.sizes?.S||0} M:${p.sizes?.M||0} L:${p.sizes?.L||0}`}
+                                        </p>
+                                        {p.isPreorder && <span className="text-yellow-500 text-[8px] font-black block mt-1">PRE-ORDER ITEM</span>}
+                                    </div>
+                                    <div className="flex gap-2 shrink-0">
+                                        <button onClick={()=>setEditingProduct(p)} className="text-brand-accent hover:text-white"><Icon name="Edit" size={18}/></button>
+                                        <button onClick={async()=>{if(confirm('Delete?')){await window.DB.deleteProduct(p._id); refresh()}}} className="text-gray-500 hover:text-red-500"><Icon name="Trash2" size={18}/></button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {tab === 'vouchers' && (
+                        <div className="space-y-8">
+                            <form onSubmit={createVoucher} className="glass-panel p-6 max-w-xl grid grid-cols-3 gap-4">
+                                <input placeholder="CODE (e.g. SAVE100)" required value={voucherForm.code} onChange={e=>setVoucherForm({...voucherForm, code:e.target.value})} className="p-3 text-[10px] font-black uppercase col-span-2"/>
+                                <input placeholder="Amount (₹)" type="number" required value={voucherForm.amount} onChange={e=>setVoucherForm({...voucherForm, amount:e.target.value})} className="p-3 text-[10px] font-black"/>
+                                <button className="col-span-3 bg-brand-accent text-black font-black py-3 uppercase text-[10px]">Create Voucher</button>
+                            </form>
+                            <div className="grid gap-4">
+                                {data.v.map(v => (
+                                    <div key={v._id} className="glass-panel p-4 flex justify-between items-center text-[10px] font-bold">
+                                        <div className="flex items-center gap-4">
+                                            <Icon name="Ticket" className="text-brand-accent"/>
+                                            <span className="text-lg tracking-widest">{v.code}</span>
+                                            <span className="text-gray-500">- ₹{v.amount}</span>
+                                        </div>
+                                        <button onClick={async()=>{if(confirm('Delete Voucher?')){await window.DB.deleteVoucher(v._id); refresh()}}} className="text-red-500 hover:text-white">DELETE</button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    {tab === 'notify' && (
+                        <div className="glass-panel p-8 max-w-xl text-center">
+                            <h2 className="text-2xl font-black italic mb-6">SEND ALERT</h2>
+                            <textarea value={notifyMsg} onChange={e=>setNotifyMsg(e.target.value)} placeholder="Type message for all users..." className="w-full p-4 mb-4 bg-white/5 border border-white/10 h-32"></textarea>
+                            <button onClick={sendNotify} className="w-full bg-brand-accent text-black font-black py-4 uppercase tracking-widest">SEND NOTIFICATION</button>
+                        </div>
+                    )}
+                    {tab === 'dropzone' && (
+                        <div className="glass-panel p-6 md:p-8 max-w-xl space-y-6">
+                            <button onClick={() => updateSettings({...settings, locked: !settings.locked})} className={`w-full py-5 font-black uppercase text-[10px] text-black tracking-[0.2em] ${settings.locked ? 'bg-red-500' : 'bg-green-500'}`}>{settings.locked ? 'Unlock Store' : 'Lock Store'}</button>
+                            <input placeholder="Drop Title" value={dropForm.dropTitle} onChange={e=>setDropForm({...dropForm, dropTitle: e.target.value})} className="w-full p-4 text-[10px] uppercase font-black"/>
+                            <input type="file" onChange={(e)=>{
+                                const file = e.target.files[0];
+                                if(file) { const rd = new FileReader(); rd.onload=(e)=>setDropForm({...dropForm, dropImage: e.target.result}); rd.readAsDataURL(file); }
+                            }} className="text-[10px] w-full"/>
+                            <button onClick={() => { updateSettings({...settings, ...dropForm}); alert('Saved'); }} className="w-full bg-white text-black font-black py-5 uppercase text-[10px] tracking-widest">Update config</button>
+                        </div>
                     )}
                 </div>
             );
@@ -387,22 +831,22 @@
                     {open && (
                         <>
                             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} onClick={()=>setOpen(false)} className="fixed inset-0 bg-black/80 z-50 backdrop-blur-sm"/>
-                            <motion.div initial={{x:'100%'}} animate={{x:0}} exit={{x:'100%'}} className="fixed right-0 top-0 h-full w-full md:w-[450px] bg-[#0a0a0a] border-l border-gray-800 z-50 flex flex-col shadow-2xl">
-                                <div className="p-6 border-b border-gray-800 flex justify-between items-center"><h2 className="font-bold text-xl italic">CART</h2><button onClick={()=>setOpen(false)}><Icon name="X"/></button></div>
+                            <motion.div initial={{x:'100%'}} animate={{x:0}} exit={{x:'100%'}} className="fixed right-0 top-0 h-full w-full md:w-[400px] bg-[#0a0a0a] border-l border-gray-800 z-50 flex flex-col uppercase">
+                                <div className="p-6 border-b border-gray-800 flex justify-between items-center font-black italic tracking-widest">BAG<button onClick={()=>setOpen(false)}><Icon name="X"/></button></div>
                                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
                                     {cart.map(i => (
-                                        <div key={i._id+i.size} className="flex gap-4 bg-brand-dark p-3 rounded border border-gray-800">
-                                            <img src={i.images[0]} className="w-16 h-20 object-cover"/>
-                                            <div className="flex-1">
-                                                <div className="flex justify-between font-bold text-sm"><span>{i.name}</span><span>₹{i.price*i.qty}</span></div>
-                                                <p className="text-xs text-gray-500 mb-2">{i.size} | Qty: {i.qty}</p>
-                                                <button onClick={()=>remove(i._id,i.size)} className="text-xs text-red-500 font-bold">REMOVE</button>
+                                        <div key={i._id+i.size} className="flex gap-4 glass-panel p-3">
+                                            <img src={i.images[0]} className="w-16 h-20 object-cover flex-shrink-0"/>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex justify-between font-bold text-[10px] tracking-tight"><span>{i.name}</span><span>₹{i.price*i.qty}</span></div>
+                                                <p className="text-[10px] text-gray-500 mt-1 uppercase italic">{i.size} | Qty: {i.qty}</p>
+                                                <button onClick={()=>remove(i._id,i.size)} className="text-[10px] text-red-500 font-bold mt-3 tracking-widest">REMOVE</button>
                                             </div>
                                         </div>
                                     ))}
-                                    {!cart.length && <div className="text-center text-gray-500 mt-20">Cart is Empty</div>}
+                                    {!cart.length && <div className="text-center text-gray-600 mt-20 uppercase text-[10px] tracking-[0.3em] italic">Bag is empty</div>}
                                 </div>
-                                {cart.length>0 && <div className="p-6 border-t border-gray-800"><button onClick={()=>{setOpen(false);window.location.hash='#checkout'}} className="w-full bg-white text-black py-4 font-black hover:bg-brand-accent transition tracking-widest">CHECKOUT (₹{total})</button></div>}
+                                {cart.length>0 && <div className="p-6 border-t border-gray-800"><button onClick={()=>{setOpen(false);window.location.hash='#checkout'}} className="w-full bg-white text-black py-5 font-black uppercase tracking-widest text-[10px]">Checkout - ₹{total}</button></div>}
                             </motion.div>
                         </>
                     )}
@@ -415,69 +859,173 @@
             const { user } = useContext(AuthCtx);
             const [f, setF] = useState({ name: user?.name||'', phone: user?.phone||'', address: '', zip: '', city: '' });
             
-            const submit = async (e) => {
-                e.preventDefault();
-                await window.DB.createOrder({ items: cart, total, user: user?._id||'guest', shipping: f, paymentMethod: 'COD' });
-                clear(); window.location.hash = '#success';
+            // Voucher State
+            const [voucherCode, setVoucherCode] = useState('');
+            const [discount, setDiscount] = useState(0);
+            const [msg, setMsg] = useState('');
+
+            const applyVoucher = async () => {
+                if(!voucherCode) return;
+                const vouchers = await window.DB.getVouchers();
+                const found = vouchers.find(v => v.code === voucherCode.toUpperCase());
+                if(found) {
+                    setDiscount(found.amount);
+                    setMsg('APPLIED');
+                } else {
+                    setDiscount(0);
+                    setMsg('INVALID');
+                }
             };
 
-            if(!cart.length) return <div className="pt-32 text-center text-gray-500">Cart Empty</div>;
+            const finalTotal = total - discount;
+
+            const submit = async (e) => {
+                e.preventDefault();
+                await window.DB.createOrder({ 
+                    items: cart, 
+                    total: finalTotal > 0 ? finalTotal : 0, 
+                    discount,
+                    user: user?._id||'guest', 
+                    shipping: f, 
+                    paymentMethod: 'Cash on Delivery' 
+                });
+                clear(); window.location.hash = '#success';
+            };
+            if(!cart.length) return <div className="pt-32 text-center text-gray-500 uppercase tracking-widest text-xs italic font-black">Bag is empty</div>;
+            return (
+                <div className="pt-20 md:pt-24 px-4 md:px-12 pb-20 min-h-screen max-w-5xl mx-auto uppercase">
+                    <form onSubmit={submit} className="grid md:grid-cols-2 gap-8 md:gap-12">
+                        <div className="space-y-6 order-2 md:order-1">
+                            <h2 className="text-2xl md:text-3xl font-black italic mb-6 tracking-tighter">Shipping</h2>
+                            <div className="space-y-4">
+                                <input placeholder="Full Name" required value={f.name} onChange={e=>setF({...f,name:e.target.value})} className="w-full p-4 text-[10px] font-black"/>
+                                <input placeholder="Phone" required value={f.phone} onChange={e=>setF({...f,phone:e.target.value})} className="w-full p-4 text-[10px] font-black"/>
+                                <input placeholder="Address" required value={f.address} onChange={e=>setF({...f,address:e.target.value})} className="w-full p-4 text-[10px] font-black"/>
+                                <div className="grid grid-cols-2 gap-4"><input placeholder="City" required value={f.city} onChange={e=>setF({...f,city:e.target.value})} className="w-full p-4 text-[10px] font-black"/><input placeholder="Zip" required value={f.zip} onChange={e=>setF({...f,zip:e.target.value})} className="w-full p-4 text-[10px] font-black"/></div>
+                            </div>
+                            <div className="p-4 border border-brand-accent bg-brand-accent/5 flex items-center gap-3"><Icon name="Package" className="text-brand-accent"/><span className="font-black uppercase text-[10px] tracking-widest">Payment: COD Only</span></div>
+                            <button className="w-full bg-white text-black font-black py-5 uppercase text-[10px] tracking-widest">Order Now - ₹{finalTotal > 0 ? finalTotal : 0}</button>
+                        </div>
+                        <div className="glass-panel p-6 md:p-8 h-fit order-1 md:order-2">
+                            <h3 className="font-bold text-gray-400 mb-6 text-[10px] tracking-widest italic">Bag Summary</h3>
+                            {cart.map(i=><div key={i._id+i.size} className="flex justify-between items-center mb-4 text-[10px] font-black border-b border-gray-800 pb-2"><span>{i.name} ({i.size}) x{i.qty}</span><span className="font-mono">₹{i.price*i.qty}</span></div>)}
+                            
+                            <div className="py-4 border-b border-gray-800">
+                                <p className="text-[10px] font-bold text-gray-500 mb-2">HAVE A VOUCHER?</p>
+                                <div className="flex gap-2">
+                                    <input placeholder="CODE" value={voucherCode} onChange={e=>setVoucherCode(e.target.value)} className="w-full p-2 text-[10px] font-black uppercase"/>
+                                    <button type="button" onClick={applyVoucher} className="bg-gray-800 px-4 text-[10px] font-bold hover:bg-white hover:text-black">APPLY</button>
+                                </div>
+                                {msg && <p className={`text-[9px] mt-1 font-bold ${msg==='APPLIED'?'text-green-500':'text-red-500'}`}>{msg}</p>}
+                            </div>
+
+                            <div className="flex justify-between font-black text-sm mt-4 text-gray-400"><span>SUBTOTAL</span><span>₹{total}</span></div>
+                            {discount > 0 && <div className="flex justify-between font-black text-sm mt-1 text-green-500"><span>DISCOUNT</span><span>-₹{discount}</span></div>}
+                            <div className="flex justify-between font-black text-2xl mt-4 text-brand-accent tracking-tighter"><span>TOTAL</span><span>₹{finalTotal > 0 ? finalTotal : 0}</span></div>
+                        </div>
+                    </form>
+                </div>
+            );
+        };
+
+        const Auth = () => {
+            const { login, register } = useContext(AuthCtx);
+            const [isLogin, setIsLogin] = useState(true);
+            const [isLoading, setIsLoading] = useState(false);
+            const [f, setF] = useState({ name: '', phone: '', pass: '' });
+            
+            const submit = async () => {
+                setIsLoading(true);
+                try {
+                    let u = isLogin ? await login(f.phone, f.pass) : await register(f.name, f.phone, f.pass);
+                    if(u) window.location.hash = u.role==='admin' ? '#admin' : '#home';
+                } catch(e) {
+                    alert(e);
+                }
+                setIsLoading(false);
+            };
 
             return (
-                <div className="pt-24 px-4 md:px-12 pb-20 min-h-screen">
-                    <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-12">
+                <div className="h-screen flex items-center justify-center bg-black bg-[url('https://images.unsplash.com/photo-1483119624769-b1a73c2537c5?auto=format&fit=crop&w=1920&q=80')] bg-cover uppercase p-4">
+                    <div className="glass-panel p-6 md:p-10 w-full max-w-sm backdrop-blur-xl bg-black/80">
+                        <h2 className="text-3xl font-black italic text-center mb-8 tracking-tighter">{isLogin?'Login':'Join'}</h2>
+                        <div className="space-y-4 mb-8">
+                            {!isLogin && <input placeholder="Name" onChange={e=>setF({...f,name:e.target.value})} className="w-full p-4 text-[10px] font-black uppercase"/>}
+                            <input placeholder="Email" type="email" onChange={e=>setF({...f,phone:e.target.value})} className="w-full p-4 text-[10px] font-black uppercase"/>
+                            <input placeholder="Password" type="password" onChange={e=>setF({...f,pass:e.target.value})} className="w-full p-4 text-[10px] font-black uppercase"/>
+                        </div>
+                        <button onClick={submit} disabled={isLoading} className="w-full bg-brand-accent text-black font-black py-4 uppercase text-[10px] tracking-widest disabled:opacity-50">
+                            {isLoading ? 'Processing...' : (isLogin?'Access Store':'Create Profile')}
+                        </button>
+                        <p className="text-center text-[10px] text-gray-500 mt-6 cursor-pointer font-black tracking-widest" onClick={()=>setIsLogin(!isLogin)}>{isLogin ? "Join Streetology" : "Back to login"}</p>
+                    </div>
+                </div>
+            );
+        };
+
+        const Contact = () => {
+            const [form, setForm] = useState({ name: '', email: '', message: '' });
+            const [sending, setSending] = useState(false);
+
+            const submit = async (e) => {
+                e.preventDefault();
+                setSending(true);
+                try {
+                    await window.DB.sendMessage(form);
+                    alert('Message Sent!');
+                    setForm({ name: '', email: '', message: '' });
+                } catch(e) { alert('Error sending message'); }
+                setSending(false);
+            };
+
+            return (
+                <div className="pt-32 text-center max-w-2xl mx-auto px-4 uppercase font-black">
+                    <h1 className="text-4xl mb-8 italic tracking-tighter">Contact Us</h1>
+                    <div className="glass-panel p-8 text-left">
                         <form onSubmit={submit} className="space-y-6">
-                            <h2 className="text-3xl font-black italic mb-4">CHECKOUT</h2>
-                            <div className="space-y-4">
-                                <input placeholder="Full Name" required value={f.name} onChange={e=>setF({...f,name:e.target.value})} className="w-full p-4"/>
-                                <input placeholder="Phone" required value={f.phone} onChange={e=>setF({...f,phone:e.target.value})} className="w-full p-4"/>
-                                <input placeholder="Address" required value={f.address} onChange={e=>setF({...f,address:e.target.value})} className="w-full p-4"/>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <input placeholder="City" required value={f.city} onChange={e=>setF({...f,city:e.target.value})} className="w-full p-4"/>
-                                    <input placeholder="Zip" required value={f.zip} onChange={e=>setF({...f,zip:e.target.value})} className="w-full p-4"/>
-                                </div>
+                            <div>
+                                <label className="text-[10px] tracking-widest text-gray-500 mb-2 block">FULL NAME</label>
+                                <input required value={form.name} onChange={e=>setForm({...form, name: e.target.value})} className="w-full p-4 text-sm font-bold bg-white/5 border border-white/10 focus:border-brand-accent outline-none" placeholder="ENTER NAME"/>
                             </div>
-                            <div className="p-4 border border-brand-accent bg-brand-accent/10 flex items-center gap-3">
-                                <Icon name="Package" className="text-brand-accent"/><span className="font-bold">CASH ON DELIVERY</span>
+                            <div>
+                                <label className="text-[10px] tracking-widest text-gray-500 mb-2 block">EMAIL ADDRESS</label>
+                                <input type="email" required value={form.email} onChange={e=>setForm({...form, email: e.target.value})} className="w-full p-4 text-sm font-bold bg-white/5 border border-white/10 focus:border-brand-accent outline-none" placeholder="ENTER EMAIL"/>
                             </div>
-                            <button className="w-full bg-white text-black font-black py-4 hover:bg-brand-accent transition">PLACE ORDER - ₹{total}</button>
+                            <div>
+                                <label className="text-[10px] tracking-widest text-gray-500 mb-2 block">MESSAGE</label>
+                                <textarea required rows="4" value={form.message} onChange={e=>setForm({...form, message: e.target.value})} className="w-full p-4 text-sm font-bold bg-white/5 border border-white/10 focus:border-brand-accent outline-none" placeholder="TYPE YOUR MESSAGE..."></textarea>
+                            </div>
+                            <button disabled={sending} className="w-full bg-brand-accent text-black py-4 font-black tracking-[0.2em] hover:bg-white transition disabled:opacity-50">
+                                {sending ? 'SENDING...' : 'SEND MESSAGE'}
+                            </button>
                         </form>
-                        <div className="glass-panel p-8 h-fit">
-                            <h3 className="font-bold text-gray-400 mb-6 text-xs tracking-widest">ORDER SUMMARY</h3>
-                            {cart.map(i=><div key={i._id+i.size} className="flex justify-between items-center mb-4 text-sm border-b border-gray-800 pb-2"><span>{i.name} <span className="text-gray-500">x{i.qty}</span></span><span className="font-mono">₹{i.price*i.qty}</span></div>)}
-                            <div className="flex justify-between font-bold text-xl mt-4 text-brand-accent"><span>TOTAL</span><span>₹{total}</span></div>
+                        <div className="mt-8 pt-8 border-t border-white/10 text-center">
+                            <p className="text-[10px] tracking-widest text-gray-500 mb-2">DIRECT EMAIL</p>
+                            <a href="mailto:support@streetology.com" className="text-brand-accent text-sm font-mono tracking-wider hover:text-white transition">support@streetology.com</a>
                         </div>
                     </div>
                 </div>
             );
         };
 
-        // SHARED PAGES
-        const Auth = () => {
-            const { login, register } = useContext(AuthCtx);
-            const [isLogin, setIsLogin] = useState(true);
-            const [f, setF] = useState({ name: '', phone: '', pass: '' });
-            const submit = async () => {
-                let u = isLogin ? await login(f.phone, f.pass) : await register(f.name, f.phone, f.pass);
-                if(u) window.location.hash = u.role==='admin' ? '#admin' : '#home';
-            };
+        const NotificationToast = ({ message, onClose }) => {
             return (
-                <div className="h-screen flex items-center justify-center bg-[url('https://images.unsplash.com/photo-1483119624769-b1a73c2537c5?auto=format&fit=crop&w=1920&q=80')] bg-cover">
-                    <div className="glass-panel p-10 w-full max-w-sm backdrop-blur-xl bg-black/80">
-                        <h2 className="text-3xl font-black italic text-center mb-6">{isLogin?'LOGIN':'JOIN'}</h2>
-                        {!isLogin && <input placeholder="Name" onChange={e=>setF({...f,name:e.target.value})} className="w-full mb-3 p-3"/>}
-                        <input placeholder="Phone" onChange={e=>setF({...f,phone:e.target.value})} className="w-full mb-3 p-3"/>
-                        <input placeholder="Password" type="password" onChange={e=>setF({...f,pass:e.target.value})} className="w-full mb-6 p-3"/>
-                        <button onClick={submit} className="w-full bg-brand-accent text-black font-bold py-3 hover:bg-white">{isLogin?'ENTER':'REGISTER'}</button>
-                        <p className="text-center text-xs text-gray-500 mt-4 cursor-pointer" onClick={()=>setIsLogin(!isLogin)}>{isLogin ? "No account? Register" : "Login"}</p>
+                <motion.div initial={{ y: -100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -100, opacity: 0 }} className="fixed top-20 left-0 right-0 z-[100] flex justify-center px-4">
+                    <div className="bg-brand-accent text-black px-6 py-4 font-bold uppercase tracking-widest shadow-2xl flex items-center gap-4 border-2 border-white">
+                        <Icon name="Bell" />
+                        <span>{message}</span>
+                        <button onClick={onClose}><Icon name="X" size={16}/></button>
                     </div>
-                </div>
+                </motion.div>
             );
         };
 
         const App = () => {
             const [view, setView] = useState('home');
             const [curr, setCurr] = useState(null);
+            const [entering, setEntering] = useState(false);
+            const [notification, setNotification] = useState(null);
+
             useEffect(() => {
                 const h = () => {
                     const hash = window.location.hash.slice(1) || 'home';
@@ -489,23 +1037,47 @@
                 window.addEventListener('hashchange', h); h(); return () => window.removeEventListener('hashchange', h);
             }, []);
 
+            useEffect(() => {
+                if(window.DB && window.DB.listenToNotifications) {
+                    window.DB.listenToNotifications((msg) => {
+                        setNotification(msg);
+                        setTimeout(() => setNotification(null), 5000); // Auto hide after 5s
+                    });
+                }
+            }, []);
+
+            const handleEnterStore = () => {
+                setEntering(true); 
+                setTimeout(() => {
+                    window.location.hash = '#shop';
+                    setTimeout(() => setEntering(false), 100); 
+                }, 1000);
+            };
+
             return (
                 <AuthProvider>
-                    <CartProvider>
-                        <Navbar/>
-                        <AnimatePresence mode="wait">
-                            {view === 'home' && <Hero key="h"/>}
-                            {view === 'shop' && <Shop key="s" setCurr={setCurr}/>}
-                            {view === 'product' && <Product key="p" p={curr}/>}
-                            {view === 'checkout' && <Checkout key="c"/>}
-                            {view === 'admin' && <Admin key="a"/>}
-                            {view === 'auth' && <Auth key="au"/>}
-                            {view === 'success' && <div key="s" className="h-screen flex items-center justify-center flex-col"><Icon name="CheckCircle" size={60} className="text-green-500 mb-4"/><h1 className="text-3xl font-bold">ORDER PLACED</h1><a href="#shop" className="underline mt-4 text-gray-500">Continue Shopping</a></div>}
-                            {view === 'about' && <div className="pt-32 text-center max-w-2xl mx-auto px-4"><h1 className="text-4xl font-bold mb-4">WHO WE ARE</h1><p className="text-gray-400">Luxury. Streets. Future. Born in 2025.</p></div>}
-                            {view === 'contact' && <div className="pt-32 text-center"><h1 className="text-4xl font-bold mb-4">CONTACT</h1><a href="mailto:support@streetology.com" className="text-brand-accent text-xl">support@streetology.com</a></div>}
-                        </AnimatePresence>
-                        <CartSidebar/>
-                    </CartProvider>
+                    <SettingsProvider>
+                        <CartProvider>
+                            <Navbar/>
+                            <DoorOverlay show={entering} />
+                            <AnimatePresence>
+                                {notification && <NotificationToast message={notification} onClose={()=>setNotification(null)} />}
+                            </AnimatePresence>
+                            <AnimatePresence mode="wait">
+                                {view === 'home' && <Hero key="h" onEnter={handleEnterStore}/>}
+                                {view === 'shop' && <Shop key="s" setCurr={setCurr}/>}
+                                {view === 'product' && <Product key="p" p={curr}/>}
+                                {view === 'checkout' && <Checkout key="c"/>}
+                                {view === 'admin' && <Admin key="a"/>}
+                                {view === 'account' && <Account key="ac"/>}
+                                {view === 'auth' && <Auth key="au"/>}
+                                {view === 'success' && <div key="s" className="h-screen flex items-center justify-center flex-col text-center px-4 uppercase font-black italic"><Icon name="CheckCircle" size={80} className="text-green-500 mb-6"/><h1 className="text-3xl md:text-4xl mb-4 tracking-tighter">Order Success</h1><p className="text-gray-500 text-[10px] mb-8 tracking-[0.3em] font-black">Thank you for your order.</p><div className="flex gap-4"><a href="#account" className="bg-white text-black px-6 py-3 text-[10px] uppercase tracking-widest not-italic">Track Order</a><a href="#shop" className="border border-white text-white px-6 py-3 text-[10px] uppercase tracking-widest not-italic">Continue</a></div></div>}
+                                {view === 'about' && <div className="pt-32 text-center max-w-2xl mx-auto px-4 uppercase font-black"><h1 className="text-4xl mb-4 italic tracking-tighter">Streetology</h1><p className="text-gray-500 tracking-[0.2em] text-[10px] leading-relaxed italic">STREETOLOGY — started in 2025. Where we’ll be in 2030, only time will tell. But till then, we promise to bring you the best of streetwear. Thank you.</p></div>}
+                                {view === 'contact' && <Contact key="contact"/>}
+                            </AnimatePresence>
+                            <CartSidebar/>
+                        </CartProvider>
+                    </SettingsProvider>
                 </AuthProvider>
             );
         };
